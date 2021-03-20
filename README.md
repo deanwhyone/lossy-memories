@@ -1,6 +1,7 @@
 # 18742 Course Project: Explorig Lossy Cache Compression in On-Chip CPU Caches
 
 This class project is the work of Jeffrey Luo, Shivani Prasad, and Deanyone Su.
+
 We primarily plan to explore lossy cache compression to increase effective cache
 capacity to overall lower AMAT for a simple CPU model. We hope to build a
 reasonable architecture model for future work and a general proof-of-concept for
