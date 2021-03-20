@@ -1,0 +1,476 @@
+Build output check failed:
+    Regex: 'argument .* is not valid'
+    Output line: 'cc1: warning: ‘-Werror=’ argument ‘-Werror=non-virtual-dtor’ is not valid for C'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type  -Werror=non-virtual-dtor'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_3b617/fast"
+/usr/bin/make -f CMakeFiles/cmTC_3b617.dir/build.make CMakeFiles/cmTC_3b617.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_3b617.dir/src.c.o
+/usr/bin/cc   -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -o CMakeFiles/cmTC_3b617.dir/src.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c
+cc1: warning: ‘-Werror=’ argument ‘-Werror=non-virtual-dtor’ is not valid for C
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking C executable cmTC_3b617
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3b617.dir/link.txt --verbose=1
+/usr/bin/cc   -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_3b617.dir/src.c.o  -o cmTC_3b617 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'command[- ]line option .* is valid for .* but not for C\+\+'
+    Output line: 'cc1plus: warning: command line option ‘-Wmissing-prototypes’ is valid for C/ObjC but not for C++'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations  -Wmissing-prototypes'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_49045/fast"
+/usr/bin/make -f CMakeFiles/cmTC_49045.dir/build.make CMakeFiles/cmTC_49045.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_49045.dir/src.cxx.o
+/usr/bin/c++    -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -o CMakeFiles/cmTC_49045.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+cc1plus: warning: command line option ‘-Wmissing-prototypes’ is valid for C/ObjC but not for C++
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking CXX executable cmTC_49045
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_49045.dir/link.txt --verbose=1
+/usr/bin/c++    -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_49045.dir/src.cxx.o  -o cmTC_49045 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'command[- ]line option .* is valid for .* but not for C\+\+'
+    Output line: 'cc1plus: warning: command line option ‘-Wstrict-prototypes’ is valid for C/ObjC but not for C++'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations  -Wstrict-prototypes'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_aa8f7/fast"
+/usr/bin/make -f CMakeFiles/cmTC_aa8f7.dir/build.make CMakeFiles/cmTC_aa8f7.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_aa8f7.dir/src.cxx.o
+/usr/bin/c++    -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wstrict-prototypes -o CMakeFiles/cmTC_aa8f7.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+cc1plus: warning: command line option ‘-Wstrict-prototypes’ is valid for C/ObjC but not for C++
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking CXX executable cmTC_aa8f7
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_aa8f7.dir/link.txt --verbose=1
+/usr/bin/c++    -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_aa8f7.dir/src.cxx.o  -o cmTC_aa8f7 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'command[- ]line option .* is valid for .* but not for C'
+    Output line: 'cc1: warning: command line option ‘-Wsign-promo’ is valid for C++/ObjC++ but not for C'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow  -Wsign-promo'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_49e0f/fast"
+/usr/bin/make -f CMakeFiles/cmTC_49e0f.dir/build.make CMakeFiles/cmTC_49e0f.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_49e0f.dir/src.c.o
+/usr/bin/cc   -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -o CMakeFiles/cmTC_49e0f.dir/src.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c
+cc1: warning: command line option ‘-Wsign-promo’ is valid for C++/ObjC++ but not for C
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking C executable cmTC_49e0f
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_49e0f.dir/link.txt --verbose=1
+/usr/bin/cc   -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_49e0f.dir/src.c.o  -o cmTC_49e0f 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'command[- ]line option .* is valid for .* but not for C'
+    Output line: 'cc1: warning: command line option ‘-Wsuggest-override’ is valid for C++/ObjC++ but not for C'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized  -Wsuggest-override'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_5f426/fast"
+/usr/bin/make -f CMakeFiles/cmTC_5f426.dir/build.make CMakeFiles/cmTC_5f426.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_5f426.dir/src.c.o
+/usr/bin/cc   -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wsuggest-override -o CMakeFiles/cmTC_5f426.dir/src.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c
+cc1: warning: command line option ‘-Wsuggest-override’ is valid for C++/ObjC++ but not for C
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking C executable cmTC_5f426
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5f426.dir/link.txt --verbose=1
+/usr/bin/cc   -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_5f426.dir/src.c.o  -o cmTC_5f426 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'command[- ]line option .* is valid for .* but not for C'
+    Output line: 'cc1: warning: command line option ‘-Wno-delete-non-virtual-dtor’ is valid for C++/ObjC++ but not for C'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized  -Wno-delete-non-virtual-dtor'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_a3fb5/fast"
+/usr/bin/make -f CMakeFiles/cmTC_a3fb5.dir/build.make CMakeFiles/cmTC_a3fb5.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_a3fb5.dir/src.c.o
+/usr/bin/cc   -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-delete-non-virtual-dtor -o CMakeFiles/cmTC_a3fb5.dir/src.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c
+cc1: warning: command line option ‘-Wno-delete-non-virtual-dtor’ is valid for C++/ObjC++ but not for C
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking C executable cmTC_a3fb5
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a3fb5.dir/link.txt --verbose=1
+/usr/bin/cc   -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_a3fb5.dir/src.c.o  -o cmTC_a3fb5 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1plus: warning: unrecognized command line option ‘-Wno-unnamed-type-template-args’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor  -Wno-unnamed-type-template-args'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_899f9/fast"
+/usr/bin/make -f CMakeFiles/cmTC_899f9.dir/build.make CMakeFiles/cmTC_899f9.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_899f9.dir/src.cxx.o
+/usr/bin/c++    -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-unnamed-type-template-args -o CMakeFiles/cmTC_899f9.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1plus: warning: unrecognized command line option ‘-Wno-unnamed-type-template-args’
+Linking CXX executable cmTC_899f9
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_899f9.dir/link.txt --verbose=1
+/usr/bin/c++    -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_899f9.dir/src.cxx.o  -o cmTC_899f9 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1: warning: unrecognized command line option ‘-Wno-unnamed-type-template-args’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized  -Wno-unnamed-type-template-args'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_c7078/fast"
+/usr/bin/make -f CMakeFiles/cmTC_c7078.dir/build.make CMakeFiles/cmTC_c7078.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_c7078.dir/src.c.o
+/usr/bin/cc   -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-unnamed-type-template-args -o CMakeFiles/cmTC_c7078.dir/src.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1: warning: unrecognized command line option ‘-Wno-unnamed-type-template-args’
+Linking C executable cmTC_c7078
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c7078.dir/link.txt --verbose=1
+/usr/bin/cc   -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_c7078.dir/src.c.o  -o cmTC_c7078 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'command[- ]line option .* is valid for .* but not for C'
+    Output line: 'cc1: warning: command line option ‘-fvisibility-inlines-hidden’ is valid for C++/ObjC++ but not for C'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c'
+    check option: ' -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden  -fvisibility-inlines-hidden'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_81e23/fast"
+/usr/bin/make -f CMakeFiles/cmTC_81e23.dir/build.make CMakeFiles/cmTC_81e23.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_81e23.dir/src.c.o
+/usr/bin/cc   -O3 -DNDEBUG -fPIE   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -o CMakeFiles/cmTC_81e23.dir/src.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c
+cc1: warning: command line option ‘-fvisibility-inlines-hidden’ is valid for C++/ObjC++ but not for C
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking C executable cmTC_81e23
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_81e23.dir/link.txt --verbose=1
+/usr/bin/cc   -O3 -DNDEBUG    -rdynamic CMakeFiles/cmTC_81e23.dir/src.c.o  -o cmTC_81e23 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1: warning: unrecognized command line option ‘-Wno-absolute-value’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c'
+    check option: ' -Wno-absolute-value'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_e7adf/fast"
+/usr/bin/make -f CMakeFiles/cmTC_e7adf.dir/build.make CMakeFiles/cmTC_e7adf.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_e7adf.dir/src.c.o
+/usr/bin/cc   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -Wno-implicit-function-declaration -Wno-uninitialized -Wno-missing-prototypes -Wno-unused-but-set-parameter -Wno-missing-declarations -Wno-unused -Wno-shadow -Wno-sign-compare -Wno-strict-overflow -Wno-pointer-compare  -O3 -DNDEBUG  -DNDEBUG -fPIE   -Wno-absolute-value -o CMakeFiles/cmTC_e7adf.dir/src.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.c:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1: warning: unrecognized command line option ‘-Wno-absolute-value’
+Linking C executable cmTC_e7adf
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e7adf.dir/link.txt --verbose=1
+/usr/bin/cc    -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -Wno-implicit-function-declaration -Wno-uninitialized -Wno-missing-prototypes -Wno-unused-but-set-parameter -Wno-missing-declarations -Wno-unused -Wno-shadow -Wno-sign-compare -Wno-strict-overflow -Wno-pointer-compare  -O3 -DNDEBUG  -DNDEBUG    -Wl,--gc-sections -Wl,--as-needed  -rdynamic CMakeFiles/cmTC_e7adf.dir/src.c.o  -o cmTC_e7adf 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Determining if the include file linux/videodev.h exists failed with the following output:
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_05dbf/fast"
+/usr/bin/make -f CMakeFiles/cmTC_05dbf.dir/build.make CMakeFiles/cmTC_05dbf.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_05dbf.dir/CheckIncludeFile.c.o
+/usr/bin/cc   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden  -O3 -DNDEBUG  -DNDEBUG -fPIE   -o CMakeFiles/cmTC_05dbf.dir/CheckIncludeFile.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:10: fatal error: linux/videodev.h: No such file or directory
+ #include <linux/videodev.h>
+          ^~~~~~~~~~~~~~~~~~
+compilation terminated.
+CMakeFiles/cmTC_05dbf.dir/build.make:65: recipe for target 'CMakeFiles/cmTC_05dbf.dir/CheckIncludeFile.c.o' failed
+make[1]: *** [CMakeFiles/cmTC_05dbf.dir/CheckIncludeFile.c.o] Error 1
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_05dbf/fast' failed
+make: *** [cmTC_05dbf/fast] Error 2
+
+
+Determining if the include file sys/videoio.h exists failed with the following output:
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_70949/fast"
+/usr/bin/make -f CMakeFiles/cmTC_70949.dir/build.make CMakeFiles/cmTC_70949.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_70949.dir/CheckIncludeFile.c.o
+/usr/bin/cc   -fsigned-char -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden  -O3 -DNDEBUG  -DNDEBUG -fPIE   -o CMakeFiles/cmTC_70949.dir/CheckIncludeFile.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:10: fatal error: sys/videoio.h: No such file or directory
+ #include <sys/videoio.h>
+          ^~~~~~~~~~~~~~~
+compilation terminated.
+CMakeFiles/cmTC_70949.dir/build.make:65: recipe for target 'CMakeFiles/cmTC_70949.dir/CheckIncludeFile.c.o' failed
+make[1]: *** [CMakeFiles/cmTC_70949.dir/CheckIncludeFile.c.o] Error 1
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_70949/fast' failed
+make: *** [cmTC_70949/fast] Error 2
+
+
+Build output check failed:
+    Regex: 'command[- ]line option .* is valid for .* but not for C\+\+'
+    Output line: 'cc1plus: warning: command line option ‘-Wno-missing-prototypes’ is valid for C/ObjC but not for C++'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -Wno-missing-prototypes'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_2c67f/fast"
+/usr/bin/make -f CMakeFiles/cmTC_2c67f.dir/build.make CMakeFiles/cmTC_2c67f.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_2c67f.dir/src.cxx.o
+/usr/bin/c++    -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated  -O3 -DNDEBUG  -DNDEBUG -fPIE   -Wno-missing-prototypes -o CMakeFiles/cmTC_2c67f.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+cc1plus: warning: command line option ‘-Wno-missing-prototypes’ is valid for C/ObjC but not for C++
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+Linking CXX executable cmTC_2c67f
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2c67f.dir/link.txt --verbose=1
+/usr/bin/c++     -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated  -O3 -DNDEBUG  -DNDEBUG    -Wl,--gc-sections -Wl,--as-needed  -rdynamic CMakeFiles/cmTC_2c67f.dir/src.cxx.o  -o cmTC_2c67f 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1plus: warning: unrecognized command line option ‘-Wno-tautological-undefined-compare’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -Wno-tautological-undefined-compare'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_21604/fast"
+/usr/bin/make -f CMakeFiles/cmTC_21604.dir/build.make CMakeFiles/cmTC_21604.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_21604.dir/src.cxx.o
+/usr/bin/c++    -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef  -O3 -DNDEBUG  -DNDEBUG -fPIE   -Wno-tautological-undefined-compare -o CMakeFiles/cmTC_21604.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1plus: warning: unrecognized command line option ‘-Wno-tautological-undefined-compare’
+Linking CXX executable cmTC_21604
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_21604.dir/link.txt --verbose=1
+/usr/bin/c++     -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef  -O3 -DNDEBUG  -DNDEBUG    -Wl,--gc-sections -Wl,--as-needed  -rdynamic CMakeFiles/cmTC_21604.dir/src.cxx.o  -o cmTC_21604 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1plus: warning: unrecognized command line option ‘-Wno-shorten-64-to-32’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -Wno-shorten-64-to-32'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_e3b6f/fast"
+/usr/bin/make -f CMakeFiles/cmTC_e3b6f.dir/build.make CMakeFiles/cmTC_e3b6f.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_e3b6f.dir/src.cxx.o
+/usr/bin/c++    -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef -Wno-ignored-qualifiers -Wno-extra -Wno-unused-function -Wno-unused-const-variable  -O3 -DNDEBUG  -DNDEBUG -fPIE   -Wno-shorten-64-to-32 -o CMakeFiles/cmTC_e3b6f.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1plus: warning: unrecognized command line option ‘-Wno-shorten-64-to-32’
+Linking CXX executable cmTC_e3b6f
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e3b6f.dir/link.txt --verbose=1
+/usr/bin/c++     -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef -Wno-ignored-qualifiers -Wno-extra -Wno-unused-function -Wno-unused-const-variable  -O3 -DNDEBUG  -DNDEBUG    -Wl,--gc-sections -Wl,--as-needed  -rdynamic CMakeFiles/cmTC_e3b6f.dir/src.cxx.o  -o cmTC_e3b6f 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1plus: warning: unrecognized command line option ‘-Wno-enum-compare-switch’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -Wno-enum-compare-switch'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_5456e/fast"
+/usr/bin/make -f CMakeFiles/cmTC_5456e.dir/build.make CMakeFiles/cmTC_5456e.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_5456e.dir/src.cxx.o
+/usr/bin/c++    -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef -Wno-ignored-qualifiers -Wno-extra -Wno-unused-function -Wno-unused-const-variable -Wno-invalid-offsetof  -O3 -DNDEBUG  -DNDEBUG -fPIE   -Wno-enum-compare-switch -o CMakeFiles/cmTC_5456e.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1plus: warning: unrecognized command line option ‘-Wno-enum-compare-switch’
+Linking CXX executable cmTC_5456e
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5456e.dir/link.txt --verbose=1
+/usr/bin/c++     -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef -Wno-ignored-qualifiers -Wno-extra -Wno-unused-function -Wno-unused-const-variable -Wno-invalid-offsetof  -O3 -DNDEBUG  -DNDEBUG    -Wl,--gc-sections -Wl,--as-needed  -rdynamic CMakeFiles/cmTC_5456e.dir/src.cxx.o  -o cmTC_5456e 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1plus: warning: unrecognized command line option ‘-Wno-inconsistent-missing-override’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -Wno-inconsistent-missing-override'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_72c9b/fast"
+/usr/bin/make -f CMakeFiles/cmTC_72c9b.dir/build.make CMakeFiles/cmTC_72c9b.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_72c9b.dir/src.cxx.o
+/usr/bin/c++    -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef -Wno-ignored-qualifiers -Wno-extra -Wno-unused-function -Wno-unused-const-variable -Wno-invalid-offsetof -Wno-suggest-override  -O3 -DNDEBUG  -DNDEBUG -fPIE   -Wno-inconsistent-missing-override -o CMakeFiles/cmTC_72c9b.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1plus: warning: unrecognized command line option ‘-Wno-inconsistent-missing-override’
+Linking CXX executable cmTC_72c9b
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_72c9b.dir/link.txt --verbose=1
+/usr/bin/c++     -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Winit-self -Wpointer-arith -Wuninitialized -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-deprecated -Wno-missing-declarations -Wno-shadow -Wno-unused-parameter -Wno-unused-local-typedefs -Wno-sign-compare -Wno-sign-promo -Wno-undef -Wno-ignored-qualifiers -Wno-extra -Wno-unused-function -Wno-unused-const-variable -Wno-invalid-offsetof -Wno-suggest-override  -O3 -DNDEBUG  -DNDEBUG    -Wl,--gc-sections -Wl,--as-needed  -rdynamic CMakeFiles/cmTC_72c9b.dir/src.cxx.o  -o cmTC_72c9b 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Build output check failed:
+    Regex: 'unrecognized .*option'
+    Output line: 'cc1plus: warning: unrecognized command line option ‘-Wno-unused-private-field’'
+Compilation failed:
+    source file: '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx'
+    check option: ' -Wno-unused-private-field'
+===== BUILD LOG =====
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_425ec/fast"
+/usr/bin/make -f CMakeFiles/cmTC_425ec.dir/build.make CMakeFiles/cmTC_425ec.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_425ec.dir/src.cxx.o
+/usr/bin/c++    -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-unused-function -Wno-deprecated-declarations -Wno-overloaded-virtual  -O3 -DNDEBUG  -DNDEBUG -fPIE   -Wno-unused-private-field -o CMakeFiles/cmTC_425ec.dir/src.cxx.o -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/src.cxx:1:0: warning: ignoring #pragma   [-Wunknown-pragmas]
+ #pragma
+ 
+cc1plus: warning: unrecognized command line option ‘-Wno-unused-private-field’
+Linking CXX executable cmTC_425ec
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_425ec.dir/link.txt --verbose=1
+/usr/bin/c++     -fsigned-char -W -Wall -Werror=return-type -Werror=non-virtual-dtor -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -Wno-unused-function -Wno-deprecated-declarations -Wno-overloaded-virtual  -O3 -DNDEBUG  -DNDEBUG    -Wl,--gc-sections -Wl,--as-needed  -rdynamic CMakeFiles/cmTC_425ec.dir/src.cxx.o  -o cmTC_425ec 
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+
+===== END =====
+
+Determining if the include file linux/videodev.h exists failed with the following output:
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_5608f/fast"
+/usr/bin/make -f CMakeFiles/cmTC_5608f.dir/build.make CMakeFiles/cmTC_5608f.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_5608f.dir/CheckIncludeFile.c.o
+/usr/bin/cc   -fsigned-char -ffast-math -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden  -O3 -DNDEBUG  -DNDEBUG -fPIE   -o CMakeFiles/cmTC_5608f.dir/CheckIncludeFile.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:10: fatal error: linux/videodev.h: No such file or directory
+ #include <linux/videodev.h>
+          ^~~~~~~~~~~~~~~~~~
+compilation terminated.
+CMakeFiles/cmTC_5608f.dir/build.make:65: recipe for target 'CMakeFiles/cmTC_5608f.dir/CheckIncludeFile.c.o' failed
+make[1]: *** [CMakeFiles/cmTC_5608f.dir/CheckIncludeFile.c.o] Error 1
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_5608f/fast' failed
+make: *** [cmTC_5608f/fast] Error 2
+
+
+Determining if the include file sys/videoio.h exists failed with the following output:
+Change Dir: /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_0751c/fast"
+/usr/bin/make -f CMakeFiles/cmTC_0751c.dir/build.make CMakeFiles/cmTC_0751c.dir/build
+make[1]: Entering directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_0751c.dir/CheckIncludeFile.c.o
+/usr/bin/cc   -fsigned-char -ffast-math -W -Wall -Werror=return-type -Werror=address -Werror=sequence-point -Wformat -Werror=format-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden  -O3 -DNDEBUG  -DNDEBUG -fPIE   -o CMakeFiles/cmTC_0751c.dir/CheckIncludeFile.c.o   -c /home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c
+/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:10: fatal error: sys/videoio.h: No such file or directory
+ #include <sys/videoio.h>
+          ^~~~~~~~~~~~~~~
+compilation terminated.
+CMakeFiles/cmTC_0751c.dir/build.make:65: recipe for target 'CMakeFiles/cmTC_0751c.dir/CheckIncludeFile.c.o' failed
+make[1]: *** [CMakeFiles/cmTC_0751c.dir/CheckIncludeFile.c.o] Error 1
+make[1]: Leaving directory '/home/deanwhyone/18742/sobel_benchmark/build/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_0751c/fast' failed
+make: *** [cmTC_0751c/fast] Error 2
+
+
