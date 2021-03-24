@@ -57,24 +57,24 @@ int IsInteresting(int value) {
 }
 
 // Print a memory read record
-VOID RecordMemRead(VOID * ip, VOID * addr) {
-    int value;
-    PIN_SafeCopy(&value, addr, sizeof(int));
-    fprintf(trace,"%p: R %p, %d\n", ip, addr, value);
+VOID RecordMemRead(VOID * ip, VOID * addr, UINT32 size) {
+    size_t value;
+    PIN_SafeCopy(&value, addr, size);
+    fprintf(trace,"%p: R %p, %zu\n", ip, addr, value);
     if (IsInteresting(value)) {
         value = value * 2;
-        PIN_SafeCopy(addr, &value, sizeof(int));
+        PIN_SafeCopy(addr, &value, size);
     }
 }
 
 // Print a memory write record
-VOID RecordMemWrite(VOID * ip, VOID * addr) {
-    int value;
-    PIN_SafeCopy(&value, addr, sizeof(int));
-    fprintf(trace,"%p: W %p, %d\n", ip, addr, value);
+VOID RecordMemWrite(VOID * ip, VOID * addr, UINT32 size) {
+    size_t value;
+    PIN_SafeCopy(&value, addr, size);
+    fprintf(trace,"%p: W %p, %zu\n", ip, addr, value);
     if (IsInteresting(value)) {
         value = value * 2;
-        PIN_SafeCopy(addr, &value, sizeof(int));
+        PIN_SafeCopy(addr, &value, size);
     }
 }
 
@@ -104,6 +104,7 @@ VOID Instruction(INS ins, VOID *v) {
                         ins, IPOINT_BEFORE, (AFUNPTR)RecordMemRead,
                         IARG_INST_PTR,
                         IARG_MEMORYOP_EA, memOp,
+                        IARG_MEMORYREAD_SIZE,
                         IARG_END);
                 }
                 // Note that in some arc->itectures a single memory operand can be
@@ -114,6 +115,7 @@ VOID Instruction(INS ins, VOID *v) {
                         ins, IPOINT_AFTER, (AFUNPTR)RecordMemWrite,
                         IARG_INST_PTR,
                         IARG_MEMORYOP_EA, memOp,
+                        IARG_MEMORYWRITE_SIZE,
                         IARG_END);
                 }
             }
