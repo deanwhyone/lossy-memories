@@ -79,6 +79,7 @@ namespace LCACHE
 }
 
 LCACHE::CACHE* dl1 = NULL;
+LCACHE::CACHE* il1 = NULL;
 
 typedef enum
 {
@@ -94,7 +95,8 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 
 // holds the counters with misses and hits
 // conceptually this is an array indexed by instruction address
-COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
+COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> il1_profile;
+COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> dl1_profile;
 
 /* ===================================================================== */
 
@@ -104,7 +106,7 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
     const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD);
 
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
-    profile[instId][counter]++;
+    dl1_profile[instId][counter]++;
 }
 
 /* ===================================================================== */
@@ -115,7 +117,7 @@ VOID StoreMulti(ADDRINT addr, UINT32 size, UINT32 instId)
     const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE);
 
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
-    profile[instId][counter]++;
+    dl1_profile[instId][counter]++;
 }
 
 /* ===================================================================== */
@@ -127,7 +129,7 @@ VOID LoadSingle(ADDRINT addr, UINT32 instId)
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_LOAD);
 
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
-    profile[instId][counter]++;
+    dl1_profile[instId][counter]++;
 }
 /* ===================================================================== */
 
@@ -138,7 +140,7 @@ VOID StoreSingle(ADDRINT addr, UINT32 instId)
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_STORE);
 
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
-    profile[instId][counter]++;
+    dl1_profile[instId][counter]++;
 }
 
 /* ===================================================================== */
@@ -169,13 +171,34 @@ VOID StoreSingleFast(ADDRINT addr)
     dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_STORE);
 }
 
+/* ===================================================================== */
 
+VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
+{
+    // @todo we may access several cache lines for
+    // first level D-cache
+    const BOOL il1Hit = il1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_LOAD);
+
+    const COUNTER counter = il1Hit ? COUNTER_HIT : COUNTER_MISS;
+    il1_profile[instId][counter]++;
+}
 
 /* ===================================================================== */
 
 VOID Instruction(INS ins, void * v)
 {
-    if ( ! INS_IsStandardMemop(ins)) return;
+    // all instructions incur a memory read for the instruction pointer
+    const ADDRINT iaddr = INS_Address(ins);
+    // map sparse INS addresses to dense IDs
+    UINT32 instId = il1_profile.Map(iaddr);
+    // instruction fetch is always single since fetched one at a time
+    // this is not realistic for modern CPUs but is ok for a baseline
+    INS_InsertPredicatedCall(
+        ins, IPOINT_BEFORE, (AFUNPTR) LoadSingleInstruction,
+        IARG_ADDRINT, iaddr, IARG_UINT32, instId,
+        IARG_END);
+
+    if (!INS_IsStandardMemop(ins)) return;
 
     if (INS_MemoryOperandCount(ins) == 0) return;
 
@@ -198,17 +221,16 @@ VOID Instruction(INS ins, void * v)
         }
     }
 
+    // map sparse INS addresses to dense IDs
+    instId = dl1_profile.Map(iaddr);
+
     if (readOperandCount > 0)
     {
-        // map sparse INS addresses to dense IDs
-        const ADDRINT iaddr = INS_Address(ins);
-        const UINT32 instId = profile.Map(iaddr);
+        const BOOL single = (readSize <= 4);
 
-        const BOOL   single = (readSize <= 4);
-
-        if( KnobTrackLoads )
+        if ( KnobTrackLoads )
         {
-            if( single )
+            if ( single )
             {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
@@ -229,7 +251,7 @@ VOID Instruction(INS ins, void * v)
         }
         else
         {
-            if( single )
+            if ( single )
             {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) LoadSingleFast,
@@ -250,14 +272,11 @@ VOID Instruction(INS ins, void * v)
 
     if (writeOperandCount > 0)
     {
-        // map sparse INS addresses to dense IDs
-        const ADDRINT iaddr = INS_Address(ins);
-        const UINT32 instId = profile.Map(iaddr);
-        const BOOL   single = (writeSize <= 4);
+        const BOOL single = (writeSize <= 4);
 
-        if( KnobTrackStores )
+        if ( KnobTrackStores )
         {
-            if( single )
+            if ( single )
             {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingle,
@@ -278,7 +297,7 @@ VOID Instruction(INS ins, void * v)
         }
         else
         {
-            if( single )
+            if ( single )
             {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingleFast,
@@ -303,7 +322,7 @@ VOID Instruction(INS ins, void * v)
 
 VOID Fini(int code, VOID * v)
 {
-    // print D-cache profile
+    // print cache profiles
     // @todo what does this print
 
     outFile << "PIN:MEMLATENCIES 1.0. 0x0\n";
@@ -313,6 +332,17 @@ VOID Fini(int code, VOID * v)
         "# CACHE stats\n"
         "#\n";
 
+    outFile << il1->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);
+
+    if( KnobTrackLoads || KnobTrackStores ) {
+        outFile <<
+            "#\n"
+            "# LOAD stats\n"
+            "#\n";
+
+        outFile << il1_profile.StringLong();
+    }
+
     outFile << dl1->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);
 
     if( KnobTrackLoads || KnobTrackStores ) {
@@ -321,7 +351,7 @@ VOID Fini(int code, VOID * v)
             "# LOAD stats\n"
             "#\n";
 
-        outFile << profile.StringLong();
+        outFile << dl1_profile.StringLong();
     }
     outFile.close();
 }
@@ -341,20 +371,29 @@ int main(int argc, char *argv[])
 
     outFile.open(KnobOutputFile.Value().c_str());
 
+    il1 = new LCACHE::CACHE("L1 Instruction Cache",
+                         KnobCacheSize.Value() * KILO,
+                         KnobLineSize.Value(),
+                         KnobAssociativity.Value());
+
     dl1 = new LCACHE::CACHE("L1 Data Cache",
                          KnobCacheSize.Value() * KILO,
                          KnobLineSize.Value(),
                          KnobAssociativity.Value());
 
-    profile.SetKeyName("iaddr          ");
-    profile.SetCounterName("cache:miss        cache:hit");
+    il1_profile.SetKeyName("iaddr          ");
+    il1_profile.SetCounterName("cache:miss        cache:hit");
+
+    dl1_profile.SetKeyName("iaddr          ");
+    dl1_profile.SetCounterName("cache:miss        cache:hit");
 
     COUNTER_HIT_MISS threshold;
 
     threshold[COUNTER_HIT] = KnobThresholdHit.Value();
     threshold[COUNTER_MISS] = KnobThresholdMiss.Value();
 
-    profile.SetThreshold( threshold );
+    il1_profile.SetThreshold( threshold );
+    dl1_profile.SetThreshold( threshold );
 
     INS_AddInstrumentFunction(Instruction, 0);
     PIN_AddFiniFunction(Fini, 0);
