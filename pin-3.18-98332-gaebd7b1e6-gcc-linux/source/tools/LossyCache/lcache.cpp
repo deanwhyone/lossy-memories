@@ -69,16 +69,16 @@ INT32 Usage()
 /* ===================================================================== */
 
 // wrap configuation constants into their own name space to avoid name clashes
-namespace DL1
+namespace LCACHE
 {
     const UINT32 max_sets = KILO; // cacheSize / (lineSize * associativity);
     const UINT32 max_associativity = 256; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
 
-    typedef CACHE_ROUND_ROBIN(max_sets, max_associativity, allocation) CACHE;
+    typedef CACHE_LRU(max_sets, max_associativity, allocation) CACHE;
 }
 
-DL1::CACHE* dl1 = NULL;
+LCACHE::CACHE* dl1 = NULL;
 
 typedef enum
 {
@@ -341,7 +341,7 @@ int main(int argc, char *argv[])
 
     outFile.open(KnobOutputFile.Value().c_str());
 
-    dl1 = new DL1::CACHE("L1 Data Cache",
+    dl1 = new LCACHE::CACHE("L1 Data Cache",
                          KnobCacheSize.Value() * KILO,
                          KnobLineSize.Value(),
                          KnobAssociativity.Value());
