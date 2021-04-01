@@ -86,7 +86,6 @@ static inline INT32 CeilLog2(UINT32 n) {
 class CACHE_TAG {
   private:
     ADDRINT _tag;
-
   public:
     CACHE_TAG(ADDRINT tag = 0) { _tag = tag; }
     bool operator==(const CACHE_TAG &right) const { return _tag == right._tag; }
@@ -114,6 +113,11 @@ class DIRECT_MAPPED {
 
     UINT32 Find(CACHE_TAG tag) { return(_tag == tag); }
     VOID Replace(CACHE_TAG tag) { _tag = tag; }
+
+    VOID SetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
+        // data tracking not supported for this cache set policy
+        return;
+    }
 };
 
 /*!
@@ -168,17 +172,24 @@ class ROUND_ROBIN {
         // condition typically faster than modulo
         _nextReplaceIndex = (index == 0 ? _tagsLastIndex : index - 1);
     }
+
+    VOID SetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
+        // data tracking not supported for this cache set policy
+        return;
+    }
 };
 
 /*!
  *  @brief Cache set with least recently used replacement
  */
-template <UINT32 MAX_ASSOCIATIVITY = 4>
+template <UINT32 MAX_ASSOCIATIVITY = 4, UINT32 LINE_SIZE = 64, bool DATA = false>
 class LRU {
   private:
     CACHE_TAG _tags[MAX_ASSOCIATIVITY];
     UINT32 _tagsLastIndex;
     UINT64 _timeSinceAccess[MAX_ASSOCIATIVITY];
+    bool _dataTrack;
+    char _dataValue[MAX_ASSOCIATIVITY][LINE_SIZE];
 
   public:
     LRU(UINT32 associativity = MAX_ASSOCIATIVITY)
@@ -190,6 +201,8 @@ class LRU {
             _tags[index] = CACHE_TAG(0);
             _timeSinceAccess[index] = UINT64_MAX;
         }
+
+        _dataTrack = DATA;
     }
 
     VOID SetAssociativity(UINT32 associativity) {
@@ -228,8 +241,30 @@ class LRU {
                 index = myIdx;
             }
         }
-        // _timeSinceAccess[index] = 0;
         _tags[index] = tag;
+    }
+
+    VOID SetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
+        if (_dataTrack) {
+            UINT32 index = UINT32_MAX;
+            for (UINT32 myIdx = 0; myIdx <= _tagsLastIndex; myIdx++) {
+                if (tag == _tags[myIdx]) {
+                    index = myIdx;
+                }
+            }
+            if (index <= _tagsLastIndex) {
+                memcpy(_dataValue[index], value, size);
+            } else {
+                // attempted to set data value of tag not in cache
+                // multithreaded?
+                printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
+                printf("Current cache tags: \n");
+                for (UINT32 idx = 0; idx <= _tagsLastIndex; idx++) {
+                    printf("%zu\n", ADDRINT(_tags[idx]));
+                }
+                assert(false);
+            }
+        }
     }
 };
 
@@ -347,25 +382,25 @@ string CACHE_BASE::StatsLong(string prefix, CACHE_TYPE cache_type) const {
     out += prefix + _name + ":" + "\n";
 
     if (cache_type != CACHE_TYPE_ICACHE) {
-       for (UINT32 i = 0; i < ACCESS_TYPE_NUM; i++) {
-           const ACCESS_TYPE accessType = ACCESS_TYPE(i);
+        for (UINT32 i = 0; i < ACCESS_TYPE_NUM; i++) {
+            const ACCESS_TYPE accessType = ACCESS_TYPE(i);
 
-           std::string type(accessType == ACCESS_TYPE_LOAD ? "Load" : "Store");
+            std::string type(accessType == ACCESS_TYPE_LOAD ? "Load" : "Store");
 
-           out += prefix + ljstr(type + "-Hits:      ", headerWidth)
-                  + mydecstr(Hits(accessType), numberWidth)  +
-                  "  " +fltstr(100.0 * Hits(accessType) / Accesses(accessType), 2, 6) + "%\n";
+            out += prefix + ljstr(type + "-Hits:      ", headerWidth)
+                + mydecstr(Hits(accessType), numberWidth)  +
+                "  " +fltstr(100.0 * Hits(accessType) / Accesses(accessType), 2, 6) + "%\n";
 
-           out += prefix + ljstr(type + "-Misses:    ", headerWidth)
-                  + mydecstr(Misses(accessType), numberWidth) +
-                  "  " +fltstr(100.0 * Misses(accessType) / Accesses(accessType), 2, 6) + "%\n";
+            out += prefix + ljstr(type + "-Misses:    ", headerWidth)
+                + mydecstr(Misses(accessType), numberWidth) +
+                "  " +fltstr(100.0 * Misses(accessType) / Accesses(accessType), 2, 6) + "%\n";
 
-           out += prefix + ljstr(type + "-Accesses:  ", headerWidth)
-                  + mydecstr(Accesses(accessType), numberWidth) +
-                  "  " +fltstr(100.0 * Accesses(accessType) / Accesses(accessType), 2, 6) + "%\n";
+            out += prefix + ljstr(type + "-Accesses:  ", headerWidth)
+                + mydecstr(Accesses(accessType), numberWidth) +
+                "  " +fltstr(100.0 * Accesses(accessType) / Accesses(accessType), 2, 6) + "%\n";
 
-           out += prefix + "\n";
-       }
+            out += prefix + "\n";
+        }
     }
 
     out += prefix + ljstr("Total-Hits:      ", headerWidth)
@@ -391,42 +426,53 @@ string CACHE_BASE::StatsLong(string prefix, CACHE_TYPE cache_type) const {
  *  All that remains to be done here is allocate and deallocate the right
  *  type of cache sets.
  */
-template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION>
+template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION, UINT32 LINE_SIZE>
 class CACHE : public CACHE_BASE {
-  private:
-    SET _sets[MAX_SETS];
+    private:
+        SET _sets[MAX_SETS];
+        bool _data;
 
-  public:
-    // constructors/destructors
-    CACHE(std::string name, UINT32 cacheSize, UINT32 lineSize, UINT32 associativity)
-      : CACHE_BASE(name, cacheSize, lineSize, associativity) {
+    public:
+        // constructors/destructors
+        CACHE(std::string name, UINT32 cacheSize, UINT32 associativity)
+            : CACHE_BASE(name, cacheSize, LINE_SIZE, associativity) {
 
-        ASSERTX(NumSets() <= MAX_SETS);
+            ASSERTX(NumSets() <= MAX_SETS);
 
-        for (UINT32 i = 0; i < NumSets(); i++) {
-            _sets[i].SetAssociativity(associativity);
+            for (UINT32 i = 0; i < NumSets(); i++) {
+                _sets[i].SetAssociativity(associativity);
+            }
         }
-    }
 
-    // modifiers
-    /// Cache access from addr to addr+size-1
-    bool Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType);
-    /// Cache access at addr that does not span cache lines
-    bool AccessSingleLine(ADDRINT addr, ACCESS_TYPE accessType);
+        // modifiers
+        /// Cache access from addr to addr+size-1
+        bool Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
+        /// Cache access at addr that does not span cache lines
+        bool AccessSingleLine(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
 };
 
 /*!
  *  @return true if all accessed cache lines hit
  */
 
-template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION>
-bool CACHE<SET,MAX_SETS,STORE_ALLOCATION>::Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType) {
+template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION, UINT32 LINE_SIZE>
+bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
     const ADDRINT highAddr = addr + size;
     bool allHit = true;
 
     const ADDRINT lineSize = LineSize();
+    assert(lineSize == LINE_SIZE);
     const ADDRINT notLineMask = ~(lineSize - 1);
+    UINT32 this_size;
+
     do {
+        if (size > LINE_SIZE) {
+            this_size = LINE_SIZE;
+            size = size - LINE_SIZE;
+        } else {
+            this_size = size;
+        }
+
         CACHE_TAG tag;
         UINT32 setIndex;
 
@@ -443,9 +489,11 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION>::Access(ADDRINT addr, UINT32 size, ACC
                 STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
             set.Replace(tag);
+            set.SetDataValue(tag, this_size, value);
         }
 
         addr = (addr & notLineMask) + lineSize; // start of next cache line
+        value = value + LINE_SIZE;
     } while (addr < highAddr);
 
     _access[accessType][allHit]++;
@@ -456,8 +504,10 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION>::Access(ADDRINT addr, UINT32 size, ACC
 /*!
  *  @return true if accessed cache line hits
  */
-template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION>
-bool CACHE<SET,MAX_SETS,STORE_ALLOCATION>::AccessSingleLine(ADDRINT addr, ACCESS_TYPE accessType) {
+template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION, UINT32 LINE_SIZE>
+bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingleLine(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
+    assert(size <= LINE_SIZE);
+
     CACHE_TAG tag;
     UINT32 setIndex;
 
@@ -473,6 +523,7 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION>::AccessSingleLine(ADDRINT addr, ACCESS
             STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
         set.Replace(tag);
+        set.SetDataValue(tag, size, value);
     }
 
     _access[accessType][hit]++;
@@ -481,8 +532,8 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION>::AccessSingleLine(ADDRINT addr, ACCESS
 }
 
 // define shortcuts
-#define CACHE_DIRECT_MAPPED(MAX_SETS, ALLOCATION) CACHE<CACHE_SET::DIRECT_MAPPED, MAX_SETS, ALLOCATION>
-#define CACHE_ROUND_ROBIN(MAX_SETS, MAX_ASSOCIATIVITY, ALLOCATION) CACHE<CACHE_SET::ROUND_ROBIN<MAX_ASSOCIATIVITY>, MAX_SETS, ALLOCATION>
-#define CACHE_LRU(MAX_SETS, MAX_ASSOCIATIVITY, ALLOCATION) CACHE<CACHE_SET::LRU<MAX_ASSOCIATIVITY>, MAX_SETS, ALLOCATION>
+#define CACHE_DIRECT_MAPPED(MAX_SETS, ALLOCATION, LINE_SIZE) CACHE<CACHE_SET::DIRECT_MAPPED, MAX_SETS, ALLOCATION, LINE_SIZE>
+#define CACHE_ROUND_ROBIN(MAX_SETS, MAX_ASSOCIATIVITY, ALLOCATION, LINE_SIZE) CACHE<CACHE_SET::ROUND_ROBIN<MAX_ASSOCIATIVITY>, MAX_SETS, ALLOCATION, LINE_SIZE>
+#define CACHE_LRU(MAX_SETS, MAX_ASSOCIATIVITY, ALLOCATION, LINE_SIZE, DATA) CACHE<CACHE_SET::LRU<MAX_ASSOCIATIVITY, LINE_SIZE, DATA>, MAX_SETS, ALLOCATION, LINE_SIZE>
 
 #endif // PIN_CACHE_H
