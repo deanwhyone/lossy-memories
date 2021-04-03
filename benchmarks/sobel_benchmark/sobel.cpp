@@ -4,10 +4,11 @@
  * @author OpenCV team
  */
 
-#include "opencv2/imgproc.hpp"
-#include "opencv2/imgcodecs.hpp"
-#include "opencv2/highgui.hpp"
 #include <iostream>
+#include "opencv2/core/utility.hpp"
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc.hpp"
 
 using namespace cv;
 using namespace std;
@@ -27,6 +28,8 @@ int main( int argc, char** argv )
     cout << "The sample uses Sobel OpenCV functions for edge detection\n\n";
     parser.printMessage();
     cout << "\n";
+
+    cv::setNumThreads(0);
 
     //![variables]
     // First we declare the variables we are going to use
