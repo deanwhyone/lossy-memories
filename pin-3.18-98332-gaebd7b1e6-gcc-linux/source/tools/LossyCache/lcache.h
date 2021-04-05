@@ -253,7 +253,31 @@ class LRU {
                 }
             }
             if (index <= _tagsLastIndex) {
+                memset(_dataValue[index], 0, LINE_SIZE*sizeof(char));
                 memcpy(_dataValue[index], value, size);
+            } else {
+                // attempted to set data value of tag not in cache
+                // multithreaded?
+                printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
+                printf("Current cache tags: \n");
+                for (UINT32 idx = 0; idx <= _tagsLastIndex; idx++) {
+                    printf("%zu\n", ADDRINT(_tags[idx]));
+                }
+                assert(false);
+            }
+        }
+    }
+
+    VOID GetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
+        if (_dataTrack) {
+            UINT32 index = UINT32_MAX;
+            for (UINT32 myIdx = 0; myIdx <= _tagsLastIndex; myIdx++) {
+                if (tag == _tags[myIdx]) {
+                    index = myIdx;
+                }
+            }
+            if (index <= _tagsLastIndex) {
+                memcpy(value, _dataValue[index], size);
             } else {
                 // attempted to set data value of tag not in cache
                 // multithreaded?
@@ -489,7 +513,10 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32
                 STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
             set.Replace(tag);
-            set.SetDataValue(tag, this_size, value);
+        }
+        set.SetDataValue(tag, this_size, value);
+        if (accessType == ACCESS_TYPE_LOAD) {
+            set.GetDataValue(tag, this_size, value);
         }
 
         addr = (addr & notLineMask) + lineSize; // start of next cache line
@@ -523,7 +550,10 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingleLine(ADDRINT ad
             STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
         set.Replace(tag);
-        set.SetDataValue(tag, size, value);
+    }
+    set.SetDataValue(tag, size, value);
+    if (accessType == ACCESS_TYPE_LOAD) {
+        set.GetDataValue(tag, size, value);
     }
 
     _access[accessType][hit]++;

@@ -36,9 +36,9 @@ std::ofstream outFile;
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,    "pintool",
     "o", "lcache.out", "specify lcache file name");
 KNOB<BOOL>   KnobTrackLoads(KNOB_MODE_WRITEONCE,    "pintool",
-    "tl", "0", "track individual loads -- increases profiling time");
+    "tl", "1", "track individual loads -- increases profiling time");
 KNOB<BOOL>   KnobTrackStores(KNOB_MODE_WRITEONCE,   "pintool",
-   "ts", "0", "track individual stores -- increases profiling time");
+   "ts", "1", "track individual stores -- increases profiling time");
 KNOB<UINT32> KnobThresholdHit(KNOB_MODE_WRITEONCE , "pintool",
    "rh", "100", "only report memops with hit count above threshold");
 KNOB<UINT32> KnobThresholdMiss(KNOB_MODE_WRITEONCE, "pintool",
@@ -102,11 +102,24 @@ COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> dl1_profile;
 
 VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 {
-    // printf("LoadMulti size %u\n", size);
+    // printf("LoadMulti addr: 0x%lx, size %u\n", addr, size);
     char* value = (char*)malloc(size);
+
+    UINT64 val, nval;
+    val = 0;
+    PIN_SafeCopy(&val, (void*)addr, 8); // only check first 8 bytes
+
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
     const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
+
+    nval = 0;
+    PIN_SafeCopy(&nval, (void*)value, 8);
+    if (val != nval) {
+        printf("lm: prior %zu, after %zu\n", val, nval);
+    }
+    assert(val == nval); // check that actual value matches value in cache
+
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
@@ -114,13 +127,25 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 
 /* ===================================================================== */
 
-VOID StoreMulti(ADDRINT addr, UINT32 size, UINT32 instId)
+VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
 {
-    // printf("StoreMulti size %u\n", size);
+    // printf("StoreMulti addr: %p, size %u\n", address, size);
     char* value = (char*)malloc(size);
+
+    ADDRINT addr = (ADDRINT)address;
+
+    UINT64 val, nval;
+    val = 0;
+    PIN_SafeCopy(&val, (void*)addr, 8); // only check first 8 bytes
+
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
     const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
+
+    nval = 0;
+    PIN_SafeCopy(&nval, (void*)value, 8);
+    assert(val == nval); // check that actual value matches value in cache
+
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
@@ -130,26 +155,46 @@ VOID StoreMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 
 VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
 {
-    // printf("LoadSingle size %u\n", size);
+    // printf("LoadSingle addr: 0x%lx, size %u\n", addr, size);
     char* value = (char*)malloc(size);
+
+    UINT64 val = 0;
+    PIN_SafeCopy(&val, (void*)addr, size);
+
     PIN_SafeCopy(value, (void*)addr, size);
     // @todo we may access several cache lines for
     // first level D-cache
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
+
+    UINT64 nval = 0;
+    PIN_SafeCopy(&nval, (void*)value, size);
+    assert(val == nval); // check that actual value matches value in cache
+
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
 }
 /* ===================================================================== */
 
-VOID StoreSingle(ADDRINT addr, UINT32 size, UINT32 instId)
+VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
 {
-    // printf("StoreSingle size %u\n", size);
+    // printf("StoreSingle addr: %p, size %u\n", address, size);
     char* value = (char*)malloc(size);
+
+    ADDRINT addr = (ADDRINT)address;
+
+    UINT64 val = 0;
+    PIN_SafeCopy(&val, (void*)addr, size);
+
     PIN_SafeCopy(value, (void*)addr, size);
     // @todo we may access several cache lines for
     // first level D-cache
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
+
+    UINT64 nval = 0;
+    PIN_SafeCopy(&nval, (void*)value, size);
+    assert(val == nval); // check that actual value matches value in cache
+
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
@@ -159,9 +204,7 @@ VOID StoreSingle(ADDRINT addr, UINT32 size, UINT32 instId)
 
 VOID LoadMultiFast(ADDRINT addr, UINT32 size)
 {
-    // printf("LoadMultiFast size %u\n", size);
     char* value = (char*)malloc(size);
-    PIN_SafeCopy(value, (void*)addr, size);
     dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
     free(value);
 }
@@ -170,9 +213,7 @@ VOID LoadMultiFast(ADDRINT addr, UINT32 size)
 
 VOID StoreMultiFast(ADDRINT addr, UINT32 size)
 {
-    // printf("StoreMultiFast size %u\n", size);
     char* value = (char*)malloc(size);
-    PIN_SafeCopy(value, (void*)addr, size);
     dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
     free(value);
 }
@@ -181,9 +222,7 @@ VOID StoreMultiFast(ADDRINT addr, UINT32 size)
 
 VOID LoadSingleFast(ADDRINT addr, UINT32 size)
 {
-    // printf("LoadSingleFast size %u\n", size);
     char* value = (char*)malloc(size);
-    PIN_SafeCopy(value, (void*)addr, size);
     dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
     free(value);
 }
@@ -192,9 +231,7 @@ VOID LoadSingleFast(ADDRINT addr, UINT32 size)
 
 VOID StoreSingleFast(ADDRINT addr, UINT32 size)
 {
-    // printf("StoreSingleFast size %u\n", size);
     char* value = (char*)malloc(size);
-    PIN_SafeCopy(value, (void*)addr, size);
     dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
     free(value);
 }
@@ -230,127 +267,118 @@ VOID Instruction(INS ins, void * v)
         IARG_ADDRINT, iaddr, IARG_UINT32, instId,
         IARG_END);
 
+    // map sparse INS addresses to dense IDs
+    instId = dl1_profile.Map(iaddr);
+
     if (!INS_IsStandardMemop(ins)) return;
 
-    if (INS_MemoryOperandCount(ins) == 0) return;
+    UINT32 memOperands = INS_MemoryOperandCount(ins);
+    if (memOperands == 0) return;
 
     UINT32 readSize=0, writeSize=0;
     UINT32 readOperandCount=0, writeOperandCount=0;
 
-    for (UINT32 opIdx = 0; opIdx < INS_MemoryOperandCount(ins); opIdx++)
-    {
-        if (INS_MemoryOperandIsRead(ins, opIdx))
-        {
+    for (UINT32 opIdx = 0; opIdx < INS_MemoryOperandCount(ins); opIdx++) {
+        if (INS_MemoryOperandIsRead(ins, opIdx)) {
             readSize = INS_MemoryOperandSize(ins, opIdx);
+
+            const BOOL single = (readSize <= 8);
+
+            if ( KnobTrackLoads )
+            {
+                if ( single )
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
+                        IARG_MEMORYREAD_EA,
+                        IARG_MEMORYREAD_SIZE,
+                        IARG_UINT32, instId,
+                        IARG_END);
+                }
+                else
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_BEFORE,  (AFUNPTR) LoadMulti,
+                        IARG_MEMORYREAD_EA,
+                        IARG_MEMORYREAD_SIZE,
+                        IARG_UINT32, instId,
+                        IARG_END);
+                }
+
+            }
+            else
+            {
+                if ( single )
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_BEFORE,  (AFUNPTR) LoadSingleFast,
+                        IARG_MEMORYREAD_EA,
+                        IARG_MEMORYREAD_SIZE,
+                        IARG_END);
+
+                }
+                else
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_BEFORE,  (AFUNPTR) LoadMultiFast,
+                        IARG_MEMORYREAD_EA,
+                        IARG_MEMORYREAD_SIZE,
+                        IARG_END);
+                }
+            }
+
             readOperandCount++;
-            break;
         }
-        if (INS_MemoryOperandIsWritten(ins, opIdx))
-        {
+        if (INS_MemoryOperandIsWritten(ins, opIdx)) {
             writeSize = INS_MemoryOperandSize(ins, opIdx);
+
+            const BOOL single = (writeSize <= 8);
+
+            if ( KnobTrackStores && INS_IsValidForIpointAfter(ins))
+            {
+                if ( single )
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_AFTER,  (AFUNPTR) StoreSingle,
+                        IARG_MEMORYOP_EA, opIdx,
+                        IARG_MEMORYWRITE_SIZE,
+                        IARG_UINT32, instId,
+                        IARG_END);
+                }
+                else
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_AFTER,  (AFUNPTR) StoreMulti,
+                        IARG_MEMORYOP_EA, opIdx,
+                        IARG_MEMORYWRITE_SIZE,
+                        IARG_UINT32, instId,
+                        IARG_END);
+                }
+
+            }
+            else
+            {
+                if ( single )
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingleFast,
+                        IARG_MEMORYWRITE_EA,
+                        IARG_MEMORYWRITE_SIZE,
+                        IARG_END);
+
+                }
+                else
+                {
+                    INS_InsertPredicatedCall(
+                        ins, IPOINT_BEFORE,  (AFUNPTR) StoreMultiFast,
+                        IARG_MEMORYWRITE_EA,
+                        IARG_MEMORYWRITE_SIZE,
+                        IARG_END);
+                }
+            }
+
             writeOperandCount++;
-            break;
         }
-    }
-
-    // map sparse INS addresses to dense IDs
-    instId = dl1_profile.Map(iaddr);
-
-    if (readOperandCount > 0)
-    {
-        const BOOL single = (readSize <= 8);
-
-        if ( KnobTrackLoads )
-        {
-            if ( single )
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
-                    IARG_MEMORYREAD_EA,
-                    IARG_MEMORYREAD_SIZE,
-                    IARG_UINT32, instId,
-                    IARG_END);
-            }
-            else
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) LoadMulti,
-                    IARG_MEMORYREAD_EA,
-                    IARG_MEMORYREAD_SIZE,
-                    IARG_UINT32, instId,
-                    IARG_END);
-            }
-
-        }
-        else
-        {
-            if ( single )
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) LoadSingleFast,
-                    IARG_MEMORYREAD_EA,
-                    IARG_MEMORYREAD_SIZE,
-                    IARG_END);
-
-            }
-            else
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) LoadMultiFast,
-                    IARG_MEMORYREAD_EA,
-                    IARG_MEMORYREAD_SIZE,
-                    IARG_END);
-            }
-        }
-    }
-
-    if (writeOperandCount > 0)
-    {
-        const BOOL single = (writeSize <= 8);
-
-        if ( KnobTrackStores )
-        {
-            if ( single )
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingle,
-                    IARG_MEMORYWRITE_EA,
-                    IARG_MEMORYWRITE_SIZE,
-                    IARG_UINT32, instId,
-                    IARG_END);
-            }
-            else
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) StoreMulti,
-                    IARG_MEMORYWRITE_EA,
-                    IARG_MEMORYWRITE_SIZE,
-                    IARG_UINT32, instId,
-                    IARG_END);
-            }
-
-        }
-        else
-        {
-            if ( single )
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingleFast,
-                    IARG_MEMORYWRITE_EA,
-                    IARG_MEMORYWRITE_SIZE,
-                    IARG_END);
-
-            }
-            else
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) StoreMultiFast,
-                    IARG_MEMORYWRITE_EA,
-                    IARG_MEMORYWRITE_SIZE,
-                    IARG_END);
-            }
-        }
-
     }
 }
 
