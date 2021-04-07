@@ -46,10 +46,14 @@ KNOB<UINT32> KnobThresholdHit(KNOB_MODE_WRITEONCE , "pintool",
    "rh", "100", "only report memops with hit count above threshold");
 KNOB<UINT32> KnobThresholdMiss(KNOB_MODE_WRITEONCE, "pintool",
    "rm","100", "only report memops with miss count above threshold");
-KNOB<UINT32> KnobCacheSize(KNOB_MODE_WRITEONCE, "pintool",
-    "c","32", "cache size in kilobytes");
-KNOB<UINT32> KnobAssociativity(KNOB_MODE_WRITEONCE, "pintool",
-    "a","4", "cache associativity (1 for direct mapped)");
+KNOB<UINT32> KnobL1CacheSize(KNOB_MODE_WRITEONCE, "pintool",
+    "l1s","32", "cache size in kilobytes");
+KNOB<UINT32> KnobL1Associativity(KNOB_MODE_WRITEONCE, "pintool",
+    "l1a","8", "cache associativity (1 for direct mapped)");
+KNOB<UINT32> KnobL2CacheSize(KNOB_MODE_WRITEONCE, "pintool",
+    "l2s","256", "cache size in kilobytes");
+KNOB<UINT32> KnobL2Associativity(KNOB_MODE_WRITEONCE, "pintool",
+    "l2a","4", "cache associativity (1 for direct mapped)");
 KNOB<UINT32> KnobTestFPCompression(KNOB_MODE_WRITEONCE, "pintool",
     "fpc","0", "run test on floating point compression accuracy");
 
@@ -85,6 +89,7 @@ namespace LCACHE
 
 LCACHE::CACHE* dl1 = NULL;
 LCACHE::CACHE* il1 = NULL;
+LCACHE::CACHE* l2 = NULL;
 
 typedef enum
 {
@@ -102,6 +107,7 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 // conceptually this is an array indexed by instruction address
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> il1_profile;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> dl1_profile;
+COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> l2_profile;
 
 /* ===================================================================== */
 
@@ -124,6 +130,8 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
         printf("lm: prior %zu, after %zu\n", val, nval);
     }
     assert(val == nval); // check that actual value matches value in cache
+
+    PIN_SafeCopy((void*)addr, (void*)value, size); // copying value from cache into mem
 
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
@@ -174,6 +182,8 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
     UINT64 nval = 0;
     PIN_SafeCopy(&nval, (void*)value, size);
     assert(val == nval); // check that actual value matches value in cache
+
+    PIN_SafeCopy((void*)addr, (void*)value, size); // copying value from cache into mem
 
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
@@ -405,13 +415,22 @@ VOID Fini(int code, VOID * v)
 
     outFile << dl1->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);
 
+    outFile << l2->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);
+
     if( KnobTrackLoads || KnobTrackStores ) {
         outFile <<
             "#\n"
-            "# LOAD stats\n"
+            "# L1D stats\n"
             "#\n";
 
         outFile << dl1_profile.StringLong();
+
+        outFile <<
+            "#\n"
+            "# L2 stats\n"
+            "#\n";
+
+        outFile << l2_profile.StringLong();
     }
     outFile.close();
 }
@@ -432,18 +451,25 @@ int main(int argc, char *argv[])
     outFile.open(KnobOutputFile.Value().c_str());
 
     il1 = new LCACHE::CACHE("L1 Instruction Cache",
-        KnobCacheSize.Value() * KILO,
-        KnobAssociativity.Value());
+        KnobL1CacheSize.Value() * KILO,
+        KnobL1Associativity.Value());
 
     dl1 = new LCACHE::CACHE("L1 Data Cache",
-        KnobCacheSize.Value() * KILO,
-        KnobAssociativity.Value());
+        KnobL1CacheSize.Value() * KILO,
+        KnobL1Associativity.Value());
+
+    l2 = new LCACHE::CACHE("L2 Unified Cache",
+        KnobL2CacheSize.Value() * KILO,
+        KnobL2Associativity.Value());
 
     il1_profile.SetKeyName("iaddr          ");
     il1_profile.SetCounterName("cache:miss        cache:hit");
 
     dl1_profile.SetKeyName("iaddr          ");
     dl1_profile.SetCounterName("cache:miss        cache:hit");
+
+    l2_profile.SetKeyName("iaddr          ");
+    l2_profile.SetCounterName("cache:miss        cache:hit");
 
     COUNTER_HIT_MISS threshold;
 
@@ -452,6 +478,7 @@ int main(int argc, char *argv[])
 
     il1_profile.SetThreshold( threshold );
     dl1_profile.SetThreshold( threshold );
+    l2_profile.SetThreshold( threshold );
 
     INS_AddInstrumentFunction(Instruction, 0);
     PIN_AddFiniFunction(Fini, 0);
