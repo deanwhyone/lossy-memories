@@ -19,7 +19,10 @@
 
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
+#define RAND() (rand() & 0xffff)  /* ensure only 16-bits */
 
+#include "compression.h"
 #include "lcache.h"
 #include "pin_profile.H"
 using std::ostringstream;
@@ -47,6 +50,8 @@ KNOB<UINT32> KnobCacheSize(KNOB_MODE_WRITEONCE, "pintool",
     "c","32", "cache size in kilobytes");
 KNOB<UINT32> KnobAssociativity(KNOB_MODE_WRITEONCE, "pintool",
     "a","4", "cache associativity (1 for direct mapped)");
+KNOB<UINT32> KnobTestFPCompression(KNOB_MODE_WRITEONCE, "pintool",
+    "fpc","0", "run test on floating point compression accuracy");
 
 /* ===================================================================== */
 /* Print Help Message                                                    */
@@ -450,6 +455,45 @@ int main(int argc, char *argv[])
 
     INS_AddInstrumentFunction(Instruction, 0);
     PIN_AddFiniFunction(Fini, 0);
+
+    /* testing compression functions */
+    if (KnobTestFPCompression.Value()) {
+        char cacheline_prior[64];
+        char cacheline_post[64];
+        int N = 4;
+        INT64 rval;
+
+        srand(time(NULL));
+
+        size_t total_diff = 0;
+        for (size_t ctr = 0; ctr < 1000; ++ctr) {
+            for (size_t idx = 0; idx < 64; idx = idx + 8) {
+                rval = ((INT64)RAND()<<48) ^ ((INT64)RAND()<<32) ^ ((INT64)RAND()<<16) ^ ((INT64)RAND());
+                // printf("random value %zd\n", rval);
+                memcpy((&(cacheline_prior[idx])), &rval, 8);
+                // for (size_t i = 0; i < 8; ++i) {
+                //     printf("cacheline_prior[%zu] = %d\n", idx + i, (unsigned char)cacheline_prior[idx + i]);
+                // }
+            }
+
+            double compressed_cacheline[N];
+            CacheDoubleFPCompress(cacheline_prior, compressed_cacheline, N);
+
+            CacheDoubleFPDecompress(compressed_cacheline, cacheline_post, N);
+
+            // for (size_t idx = 0; idx < 64; ++idx) {
+            //     printf("cacheline_prior[%zu] = %d\n", idx, (unsigned char)cacheline_post[idx]);
+            // }
+            size_t cumulative_diff = 0;
+            for (size_t idx = 0; idx < 64; ++idx) {
+                int diff = cacheline_post[idx] - cacheline_prior[idx];
+                cumulative_diff = cumulative_diff + abs(diff);
+            }
+            // printf("cumulative_diff due to compression: %zu\n", cumulative_diff);
+            total_diff += cumulative_diff;
+        }
+        printf("Total diff is %zu\n", total_diff);
+    }
 
     // Never returns
 
