@@ -28,6 +28,7 @@ using std::cerr;
 using std::endl;
 
 std::ofstream outFile;
+FILE * trace;
 
 /* ===================================================================== */
 /* Commandline Switches */
@@ -96,6 +97,28 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 // conceptually this is an array indexed by instruction address
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
+// Print a memory read record
+VOID RecordMemRead(VOID * ip, VOID * addr, BOOL hit) {
+    int value;
+    PIN_SafeCopy(&value, addr, sizeof(int));
+    if (hit) {
+        fprintf(trace,"%p: R hit %p, %d\n", ip, addr, value);
+    } else {
+        fprintf(trace,"%p: R miss %p, %d\n", ip, addr, value);
+    }
+}
+
+// Print a memory write record
+VOID RecordMemWrite(VOID * ip, VOID * addr, BOOL hit) {
+    int value;
+    PIN_SafeCopy(&value, addr, sizeof(int));
+    if (hit) {
+        fprintf(trace,"%p: W hit %p, %d\n", ip, addr, value);
+    } else {
+        fprintf(trace,"%p: W miss %p, %d\n", ip, addr, value);
+    }
+}
+
 /* ===================================================================== */
 
 VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
@@ -120,23 +143,23 @@ VOID StoreMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 
 /* ===================================================================== */
 
-VOID LoadSingle(ADDRINT addr, UINT32 instId)
+VOID LoadSingle(VOID * ip, ADDRINT addr, UINT32 instId)
 {
     // @todo we may access several cache lines for 
     // first level D-cache
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_LOAD);
-
+    RecordMemRead(ip, (VOID *)addr, dl1Hit);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     profile[instId][counter]++;
 }
 /* ===================================================================== */
 
-VOID StoreSingle(ADDRINT addr, UINT32 instId)
+VOID StoreSingle(VOID * ip, ADDRINT addr, UINT32 instId)
 {
     // @todo we may access several cache lines for 
     // first level D-cache
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_STORE);
-
+    RecordMemWrite(ip, (VOID *)addr, dl1Hit);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     profile[instId][counter]++;
 }
@@ -212,6 +235,7 @@ VOID Instruction(INS ins, void * v)
             {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
+                    IARG_INST_PTR,
                     IARG_MEMORYREAD_EA,
                     IARG_UINT32, instId,
                     IARG_END);
@@ -261,6 +285,7 @@ VOID Instruction(INS ins, void * v)
             {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingle,
+                    IARG_INST_PTR,
                     IARG_MEMORYWRITE_EA,
                     IARG_UINT32, instId,
                     IARG_END);
@@ -305,6 +330,9 @@ VOID Fini(int code, VOID * v)
 {
     // print D-cache profile
     // @todo what does this print
+
+    fprintf(trace, "#eof\n");
+    fclose(trace);
     
     outFile << "PIN:MEMLATENCIES 1.0. 0x0\n";
             
@@ -326,6 +354,24 @@ VOID Fini(int code, VOID * v)
     outFile.close();
 }
 
+VOID MarkCompressable(ADDRINT addr, ADDRINT size) {
+    fprintf(trace, "Marking addr %lx with size %ld as compressable\n", addr, size);
+}
+
+VOID Compress(IMG img, VOID *v) {
+    RTN compressRtn = RTN_FindByName(img, "__COMPRESS__");
+    if (RTN_Valid(compressRtn)) {
+        RTN_Open(compressRtn);
+
+        RTN_InsertCall(compressRtn, IPOINT_BEFORE, (AFUNPTR)MarkCompressable,
+                       IARG_FUNCARG_ENTRYPOINT_VALUE, 0,
+                       IARG_FUNCARG_ENTRYPOINT_VALUE, 1,
+                       IARG_END);
+
+        RTN_Close(compressRtn);
+    }
+}
+
 /* ===================================================================== */
 /* Main                                                                  */
 /* ===================================================================== */
@@ -338,6 +384,8 @@ int main(int argc, char *argv[])
     {
         return Usage();
     }
+
+    trace = fopen("dcache_pinatrace.out", "w");
 
     outFile.open(KnobOutputFile.Value().c_str());
 
@@ -357,6 +405,7 @@ int main(int argc, char *argv[])
     profile.SetThreshold( threshold );
     
     INS_AddInstrumentFunction(Instruction, 0);
+    IMG_AddInstrumentFunction(Compress, 0);
     PIN_AddFiniFunction(Fini, 0);
 
     // Never returns
