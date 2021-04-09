@@ -22,7 +22,7 @@
 #include <cstdlib>
 #define RAND() (rand() & 0xffff)  /* ensure only 16-bits */
 
-#include "compression.h"
+// #include "compression.h"
 #include "lcache.h"
 #include "pin_profile.H"
 using std::ostringstream;
@@ -38,10 +38,6 @@ std::ofstream outFile;
 
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,    "pintool",
     "o", "lcache.out", "specify lcache file name");
-KNOB<BOOL>   KnobTrackLoads(KNOB_MODE_WRITEONCE,    "pintool",
-    "tl", "1", "track individual loads -- increases profiling time");
-KNOB<BOOL>   KnobTrackStores(KNOB_MODE_WRITEONCE,   "pintool",
-   "ts", "1", "track individual stores -- increases profiling time");
 KNOB<UINT32> KnobThresholdHit(KNOB_MODE_WRITEONCE , "pintool",
    "rh", "100", "only report memops with hit count above threshold");
 KNOB<UINT32> KnobThresholdMiss(KNOB_MODE_WRITEONCE, "pintool",
@@ -76,20 +72,30 @@ INT32 Usage()
 /* ===================================================================== */
 
 // wrap configuation constants into their own name space to avoid name clashes
-namespace LCACHE
+namespace LCACHE_L1
 {
     const UINT32 max_sets = KILO; // cacheSize / (lineSize * associativity);
-    const UINT32 max_associativity = 256; // associativity;
+    const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
     const bool keep_data = true;
 
     typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
 }
+namespace LCACHE_L2
+{
+    const UINT32 max_sets = KILO; // cacheSize / (lineSize * associativity);
+    const UINT32 max_associativity = 64; // associativity;
+    const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
+    const UINT32 line_size = 64;
+    const bool keep_data = false;
 
-LCACHE::CACHE* dl1 = NULL;
-LCACHE::CACHE* il1 = NULL;
-LCACHE::CACHE* l2 = NULL;
+    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
+}
+
+LCACHE_L1::CACHE* dl1 = NULL;
+LCACHE_L1::CACHE* il1 = NULL;
+LCACHE_L2::CACHE* l2 = NULL;
 
 typedef enum
 {
@@ -98,16 +104,59 @@ typedef enum
     COUNTER_NUM
 } COUNTER;
 
-
+typedef enum
+{
+    L1I_CACHE = 0,
+    L1D_CACHE = 1,
+    L2_CACHE = 2,
+    CACHE_NUM
+} CACHE_ID;
 
 typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
-
 
 // holds the counters with misses and hits
 // conceptually this is an array indexed by instruction address
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> il1_profile;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> dl1_profile;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> l2_profile;
+
+/* ===================================================================== */
+
+/*
+ * Called on load miss in either L1 cache
+ * Always loads a full cache line from L2, store into appropriate L1
+ */
+VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
+{
+    UINT32 size = 64; // granularity of a 64 byte cache line
+    // printf("LoadMultiL2 addr: 0x%lx, size %u\n", addr, size);
+
+    // align addr with 64 byte boundary
+    addr = addr & 0xfffffffffffffe00;
+
+    const BOOL l2Hit = l2->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, NULL);
+
+    const COUNTER counter = l2Hit ? COUNTER_HIT : COUNTER_MISS;
+    l2_profile[instId][counter]++;
+}
+
+/* ===================================================================== */
+
+/*
+ * Called on eviction of dirty data in L1D (L1I never evicts dirty data)
+ */
+VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
+{
+    UINT32 size = 64; // granularity of a 64 byte cache line
+    // printf("StoreMultiL2 addr: %p, size %u\n", address, size);
+    // align addr with 64 byte boundary
+    addr = addr & 0xfffffffffffffe00;
+
+    const BOOL l2Hit = l2->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, NULL);
+
+    const COUNTER counter = l2Hit ? COUNTER_HIT : COUNTER_MISS;
+    l2_profile[instId][counter]++;
+}
 
 /* ===================================================================== */
 
@@ -122,7 +171,8 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
-    const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
+    const CACHE_ACCESS_STRUCT dl1Access = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
+    const BOOL dl1Hit = dl1Access.hit;
 
     nval = 0;
     PIN_SafeCopy(&nval, (void*)value, 8);
@@ -136,6 +186,14 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
+
+    // call L2 cache as needed
+    if (!dl1Hit) {
+        LoadMultiL2(addr, L1D_CACHE, instId);
+    }
+    if (dl1Access.evicted_dirty) {
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+    }
 }
 
 /* ===================================================================== */
@@ -153,7 +211,8 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
 
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
-    const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
+    const CACHE_ACCESS_STRUCT dl1Access = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
+    const BOOL dl1Hit = dl1Access.hit;
 
     nval = 0;
     PIN_SafeCopy(&nval, (void*)value, 8);
@@ -162,6 +221,12 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
+
+    // write-back cache never triggers miss on write
+    // value is allocated in cache w/ dirty bit and the cache pushes on eviction
+    if (dl1Access.evicted_dirty) {
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+    }
 }
 
 /* ===================================================================== */
@@ -175,9 +240,10 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
     PIN_SafeCopy(&val, (void*)addr, size);
 
     PIN_SafeCopy(value, (void*)addr, size);
-    // @todo we may access several cache lines for
+
     // first level D-cache
-    const BOOL dl1Hit = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
+    const CACHE_ACCESS_STRUCT dl1Access = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
+    const BOOL dl1Hit = dl1Access.hit;
 
     UINT64 nval = 0;
     PIN_SafeCopy(&nval, (void*)value, size);
@@ -188,7 +254,16 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
+
+    // call L2 cache as needed
+    if (!dl1Hit) {
+        LoadMultiL2(addr, L1D_CACHE, instId);
+    }
+    if (dl1Access.evicted_dirty) {
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+    }
 }
+
 /* ===================================================================== */
 
 VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
@@ -204,7 +279,8 @@ VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
     PIN_SafeCopy(value, (void*)addr, size);
     // @todo we may access several cache lines for
     // first level D-cache
-    const BOOL dl1Hit = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
+    const CACHE_ACCESS_STRUCT dl1Access = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
+    const BOOL dl1Hit = dl1Access.hit;
 
     UINT64 nval = 0;
     PIN_SafeCopy(&nval, (void*)value, size);
@@ -213,42 +289,12 @@ VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
-}
 
-/* ===================================================================== */
-
-VOID LoadMultiFast(ADDRINT addr, UINT32 size)
-{
-    char* value = (char*)malloc(size);
-    dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
-    free(value);
-}
-
-/* ===================================================================== */
-
-VOID StoreMultiFast(ADDRINT addr, UINT32 size)
-{
-    char* value = (char*)malloc(size);
-    dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
-    free(value);
-}
-
-/* ===================================================================== */
-
-VOID LoadSingleFast(ADDRINT addr, UINT32 size)
-{
-    char* value = (char*)malloc(size);
-    dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
-    free(value);
-}
-
-/* ===================================================================== */
-
-VOID StoreSingleFast(ADDRINT addr, UINT32 size)
-{
-    char* value = (char*)malloc(size);
-    dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
-    free(value);
+    // write-back cache never triggers miss on write
+    // value is allocated in cache w/ dirty bit and the cache pushes on eviction
+    if (dl1Access.evicted_dirty) {
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+    }
 }
 
 /* ===================================================================== */
@@ -257,14 +303,20 @@ VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
 {
     // assume 64 bit instruction
     UINT32 size = 8;
-    char* value = (char*)malloc(size);
-    // cannot copy instruction data, will cause segfault, instead create value
-    char instruction[9] = "FFFFFFFF";
-    memcpy(value, instruction, 8);
-    const BOOL il1Hit = il1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
-    free(value);
+
+    const CACHE_ACCESS_STRUCT il1Access = il1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, NULL);
+    const BOOL il1Hit= il1Access.hit;
+
     const COUNTER counter = il1Hit ? COUNTER_HIT : COUNTER_MISS;
     il1_profile[instId][counter]++;
+
+    // call L2 cache as needed
+    if (!il1Hit) {
+        LoadMultiL2(addr, L1I_CACHE, instId);
+    }
+    if (il1Access.evicted_dirty) {
+        StoreMultiL2(il1Access.evicted_addr, L1I_CACHE, instId);
+    }
 }
 
 /* ===================================================================== */
@@ -299,47 +351,23 @@ VOID Instruction(INS ins, void * v)
 
             const BOOL single = (readSize <= 8);
 
-            if ( KnobTrackLoads )
+            if ( single )
             {
-                if ( single )
-                {
-                    INS_InsertPredicatedCall(
-                        ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
-                        IARG_MEMORYREAD_EA,
-                        IARG_MEMORYREAD_SIZE,
-                        IARG_UINT32, instId,
-                        IARG_END);
-                }
-                else
-                {
-                    INS_InsertPredicatedCall(
-                        ins, IPOINT_BEFORE,  (AFUNPTR) LoadMulti,
-                        IARG_MEMORYREAD_EA,
-                        IARG_MEMORYREAD_SIZE,
-                        IARG_UINT32, instId,
-                        IARG_END);
-                }
-
+                INS_InsertPredicatedCall(
+                    ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
+                    IARG_MEMORYREAD_EA,
+                    IARG_MEMORYREAD_SIZE,
+                    IARG_UINT32, instId,
+                    IARG_END);
             }
             else
             {
-                if ( single )
-                {
-                    INS_InsertPredicatedCall(
-                        ins, IPOINT_BEFORE,  (AFUNPTR) LoadSingleFast,
-                        IARG_MEMORYREAD_EA,
-                        IARG_MEMORYREAD_SIZE,
-                        IARG_END);
-
-                }
-                else
-                {
-                    INS_InsertPredicatedCall(
-                        ins, IPOINT_BEFORE,  (AFUNPTR) LoadMultiFast,
-                        IARG_MEMORYREAD_EA,
-                        IARG_MEMORYREAD_SIZE,
-                        IARG_END);
-                }
+                INS_InsertPredicatedCall(
+                    ins, IPOINT_BEFORE,  (AFUNPTR) LoadMulti,
+                    IARG_MEMORYREAD_EA,
+                    IARG_MEMORYREAD_SIZE,
+                    IARG_UINT32, instId,
+                    IARG_END);
             }
 
             readOperandCount++;
@@ -349,7 +377,7 @@ VOID Instruction(INS ins, void * v)
 
             const BOOL single = (writeSize <= 8);
 
-            if ( KnobTrackStores && INS_IsValidForIpointAfter(ins))
+            if (INS_IsValidForIpointAfter(ins))
             {
                 if ( single )
                 {
@@ -370,26 +398,6 @@ VOID Instruction(INS ins, void * v)
                         IARG_END);
                 }
 
-            }
-            else
-            {
-                if ( single )
-                {
-                    INS_InsertPredicatedCall(
-                        ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingleFast,
-                        IARG_MEMORYWRITE_EA,
-                        IARG_MEMORYWRITE_SIZE,
-                        IARG_END);
-
-                }
-                else
-                {
-                    INS_InsertPredicatedCall(
-                        ins, IPOINT_BEFORE,  (AFUNPTR) StoreMultiFast,
-                        IARG_MEMORYWRITE_EA,
-                        IARG_MEMORYWRITE_SIZE,
-                        IARG_END);
-                }
             }
 
             writeOperandCount++;
@@ -417,21 +425,20 @@ VOID Fini(int code, VOID * v)
 
     outFile << l2->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);
 
-    if( KnobTrackLoads || KnobTrackStores ) {
-        outFile <<
-            "#\n"
-            "# L1D stats\n"
-            "#\n";
+    outFile <<
+        "#\n"
+        "# L1D stats\n"
+        "#\n";
 
-        outFile << dl1_profile.StringLong();
+    outFile << dl1_profile.StringLong();
 
-        outFile <<
-            "#\n"
-            "# L2 stats\n"
-            "#\n";
+    outFile <<
+        "#\n"
+        "# L2 stats\n"
+        "#\n";
 
-        outFile << l2_profile.StringLong();
-    }
+    outFile << l2_profile.StringLong();
+
     outFile.close();
 }
 
@@ -450,15 +457,15 @@ int main(int argc, char *argv[])
 
     outFile.open(KnobOutputFile.Value().c_str());
 
-    il1 = new LCACHE::CACHE("L1 Instruction Cache",
+    il1 = new LCACHE_L1::CACHE("L1 Instruction Cache",
         KnobL1CacheSize.Value() * KILO,
         KnobL1Associativity.Value());
 
-    dl1 = new LCACHE::CACHE("L1 Data Cache",
+    dl1 = new LCACHE_L1::CACHE("L1 Data Cache",
         KnobL1CacheSize.Value() * KILO,
         KnobL1Associativity.Value());
 
-    l2 = new LCACHE::CACHE("L2 Unified Cache",
+    l2 = new LCACHE_L2::CACHE("L2 Unified Cache",
         KnobL2CacheSize.Value() * KILO,
         KnobL2Associativity.Value());
 
@@ -495,7 +502,8 @@ int main(int argc, char *argv[])
         size_t total_diff = 0;
         for (size_t ctr = 0; ctr < 1000; ++ctr) {
             for (size_t idx = 0; idx < 64; idx = idx + 8) {
-                rval = ((INT64)RAND()<<48) ^ ((INT64)RAND()<<32) ^ ((INT64)RAND()<<16) ^ ((INT64)RAND());
+                // rval = ((INT64)RAND()<<48) ^ ((INT64)RAND()<<32) ^ ((INT64)RAND()<<16) ^ ((INT64)RAND());
+                rval = ((INT64)RAND()<<12) ^ ((INT64)RAND());
                 // printf("random value %zd\n", rval);
                 memcpy((&(cacheline_prior[idx])), &rval, 8);
                 // for (size_t i = 0; i < 8; ++i) {
@@ -509,7 +517,7 @@ int main(int argc, char *argv[])
             CacheDoubleFPDecompress(compressed_cacheline, cacheline_post, N);
 
             // for (size_t idx = 0; idx < 64; ++idx) {
-            //     printf("cacheline_prior[%zu] = %d\n", idx, (unsigned char)cacheline_post[idx]);
+            //     printf("cacheline_post[%zu] = %d\n", idx, (unsigned char)cacheline_post[idx]);
             // }
             size_t cumulative_diff = 0;
             for (size_t idx = 0; idx < 64; ++idx) {

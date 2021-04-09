@@ -1,12 +1,12 @@
 /*
  * Copyright 2002-2020 Intel Corporation.
- * 
+ *
  * This software and the related documents are Intel copyrighted materials, and your
  * use of them is governed by the express license under which they were provided to
  * you ("License"). Unless the License provides otherwise, you may not use, modify,
  * copy, publish, distribute, disclose or transmit this software or the related
  * documents without Intel's prior written permission.
- * 
+ *
  * This software and the related documents are provided as is, with no express or
  * implied warranties, other than those that are expressly stated in the License.
  */
@@ -68,7 +68,7 @@ class COMPRESSOR
     INDEX Map(KEY key)
     {
         typename MAP::const_iterator it = _map.find(key);
-        
+
         if (it != _map.end())
         {
             // key found: return index
@@ -99,7 +99,7 @@ class COMPRESSOR_COUNTER : public COMPRESSOR<KEY, INDEX>
 {
   private:
     typedef std::vector<COUNTER> VECTOR;
-    static const UINT32 defaultInitCounterSize = 8*1024;
+    static const UINT32 defaultInitCounterSize = 8*1024*1024; // causes segfault if large enough
 
     VECTOR _counters;
     std::string _counterName;
@@ -122,7 +122,7 @@ class COMPRESSOR_COUNTER : public COMPRESSOR<KEY, INDEX>
         for (typename COMPRESSOR<KEY,INDEX>::MAP::const_iterator it = this->_map.begin(); it != this->_map.end(); it++)
         {
             const COUNTER& counter = _counters[it->second];
-            
+
             if ( _threshold <= counter ) num_counters++;
         }
 
@@ -190,7 +190,7 @@ class COUNTER_ARRAY
 {
   private:
     NUMTYPE _counters[NUM_COUNTERS];
-    
+
   public:
     // accessors
     std::string str() const
@@ -227,7 +227,7 @@ class COUNTER_ARRAY
 
         return true;
     }
-    
+
 
     // modifiers
     const NUMTYPE & operator[] (UINT32 index) const { return _counters[index]; }
@@ -240,7 +240,7 @@ class COUNTER_ARRAY
     }
 
     NUMTYPE & at(UINT32 index)
-    { 
+    {
         assert(index < NUM_COUNTERS);
         return _counters[index];
     }

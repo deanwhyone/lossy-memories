@@ -29,6 +29,7 @@
 
 typedef UINT64 CACHE_STATS; // type of cache hit/miss counters
 
+#include "compression.h"
 #include <sstream>
 using std::string;
 using std::ostringstream;
@@ -92,6 +93,21 @@ class CACHE_TAG {
     operator ADDRINT() const { return _tag; }
 };
 
+/*
+ * Return struct for providing more detailed return information. Provides
+ * implicit cast to bool for backwards compatibility
+ */
+struct CACHE_ACCESS_STRUCT {
+    bool hit;
+
+    // more useful stuff
+    ADDRINT evicted_addr;
+    CACHE_TAG evicted_tag;
+    bool evicted_dirty;
+
+    operator bool() {return hit;} // allow implicit cast
+};
+
 
 /*!
  * Everything related to cache sets
@@ -113,11 +129,6 @@ class DIRECT_MAPPED {
 
     UINT32 Find(CACHE_TAG tag) { return(_tag == tag); }
     VOID Replace(CACHE_TAG tag) { _tag = tag; }
-
-    VOID SetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
-        // data tracking not supported for this cache set policy
-        return;
-    }
 };
 
 /*!
@@ -172,11 +183,6 @@ class ROUND_ROBIN {
         // condition typically faster than modulo
         _nextReplaceIndex = (index == 0 ? _tagsLastIndex : index - 1);
     }
-
-    VOID SetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
-        // data tracking not supported for this cache set policy
-        return;
-    }
 };
 
 /*!
@@ -188,10 +194,14 @@ class LRU {
     CACHE_TAG _tags[MAX_ASSOCIATIVITY];
     UINT32 _tagsLastIndex;
     UINT64 _timeSinceAccess[MAX_ASSOCIATIVITY];
+    UINT32 _dirty[MAX_ASSOCIATIVITY];
     bool _dataTrack;
     char _dataValue[MAX_ASSOCIATIVITY][LINE_SIZE];
 
   public:
+    CACHE_TAG _evicted_tag;
+    bool _evicted_dirty;
+
     LRU(UINT32 associativity = MAX_ASSOCIATIVITY)
         : _tagsLastIndex(associativity - 1) {
 
@@ -241,7 +251,33 @@ class LRU {
                 index = myIdx;
             }
         }
+        _evicted_tag = _tags[index];
+        _evicted_dirty = _dirty[index];
+
         _tags[index] = tag;
+        _dirty[index] = 0;
+    }
+
+    VOID SetDirtyBit(CACHE_TAG tag) {
+        UINT32 index = UINT32_MAX;
+        for (UINT32 myIdx = 0; myIdx <= _tagsLastIndex; myIdx++) {
+            if (tag == _tags[myIdx]) {
+                index = myIdx;
+            }
+        }
+        if (index <= _tagsLastIndex) {
+            _dirty[index] = 1;
+        } else {
+            // attempted to set data value of tag not in cache
+            // multithreaded?
+            printf("SetDirtyBit of tag: %zu\n", ADDRINT(tag));
+            printf("Current cache tags: \n");
+            for (UINT32 idx = 0; idx <= _tagsLastIndex; idx++) {
+                printf("%zu\n", ADDRINT(_tags[idx]));
+            }
+            assert(false);
+        }
+
     }
 
     VOID SetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
@@ -373,6 +409,10 @@ class CACHE_BASE {
         SplitAddress(addr, tag, setIndex);
     }
 
+    ADDRINT MergeAddress(CACHE_TAG tag) {
+        return ADDRINT(tag) << _lineShift;
+    }
+
     string StatsLong(string prefix = "", CACHE_TYPE = CACHE_TYPE_DCACHE) const;
 };
 
@@ -470,9 +510,9 @@ class CACHE : public CACHE_BASE {
 
         // modifiers
         /// Cache access from addr to addr+size-1
-        bool Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
+        CACHE_ACCESS_STRUCT Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
         /// Cache access at addr that does not span cache lines
-        bool AccessSingleLine(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
+        CACHE_ACCESS_STRUCT AccessSingleLine(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
 };
 
 /*!
@@ -480,7 +520,9 @@ class CACHE : public CACHE_BASE {
  */
 
 template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION, UINT32 LINE_SIZE>
-bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
+CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
+    CACHE_ACCESS_STRUCT retval;
+    retval.evicted_dirty = false;
     const ADDRINT highAddr = addr + size;
     bool allHit = true;
 
@@ -507,34 +549,50 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32
         bool localHit = set.Find(tag);
         allHit &= localHit;
 
+        // on hit, writes set dirty bit of cache line
+        if (localHit && accessType == ACCESS_TYPE_STORE) {
+            set.SetDirtyBit(tag);
+        }
+
         // on miss, loads always allocate, stores optionally
         if ((!localHit) &&
             (accessType == ACCESS_TYPE_LOAD ||
                 STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
             set.Replace(tag);
-        }
-        set.SetDataValue(tag, this_size, value);
-        if (accessType == ACCESS_TYPE_LOAD) {
-            set.GetDataValue(tag, this_size, value);
-        }
 
+            if (set._evicted_dirty) {
+                retval.evicted_tag = set._evicted_tag;
+                retval.evicted_addr = MergeAddress(set._evicted_tag);
+                retval.evicted_dirty = true;
+            }
+        }
         addr = (addr & notLineMask) + lineSize; // start of next cache line
-        value = value + LINE_SIZE;
+        if (value != NULL) {
+            set.SetDataValue(tag, this_size, value);
+            if (accessType == ACCESS_TYPE_LOAD) {
+                set.GetDataValue(tag, this_size, value);
+            }
+
+            value = value + LINE_SIZE;
+        }
     } while (addr < highAddr);
 
     _access[accessType][allHit]++;
 
-    return allHit;
+
+    retval.hit = allHit;
+    return retval;
 }
 
 /*!
  *  @return true if accessed cache line hits
  */
 template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION, UINT32 LINE_SIZE>
-bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingleLine(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
+CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingleLine(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
     assert(size <= LINE_SIZE);
-
+    CACHE_ACCESS_STRUCT retval;
+    retval.evicted_dirty = false;
     CACHE_TAG tag;
     UINT32 setIndex;
 
@@ -550,15 +608,23 @@ bool CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingleLine(ADDRINT ad
             STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
         set.Replace(tag);
+        if (set._evicted_dirty) {
+            retval.evicted_tag = set._evicted_tag;
+            retval.evicted_dirty = true;
+        }
     }
-    set.SetDataValue(tag, size, value);
-    if (accessType == ACCESS_TYPE_LOAD) {
-        set.GetDataValue(tag, size, value);
+
+    if (value != NULL) {
+        set.SetDataValue(tag, size, value);
+        if (accessType == ACCESS_TYPE_LOAD) {
+            set.GetDataValue(tag, size, value);
+        }
     }
 
     _access[accessType][hit]++;
 
-    return hit;
+    retval.hit = hit;
+    return retval;
 }
 
 // define shortcuts

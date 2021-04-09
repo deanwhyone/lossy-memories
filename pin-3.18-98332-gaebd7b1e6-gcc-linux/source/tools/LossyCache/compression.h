@@ -70,25 +70,38 @@ VOID CacheSingleFPDecompress(float* fp_in, char *cache_line, int N) {
  */
 VOID CacheDoubleFPCompress(char *cache_line, double* fp_out, int N) {
     double fp_array[N];
-    double this_fp;
     INT64 this_int;
+    INT64 next_int;
 
     if (N > 8) {
         printf("Unsupported. Precision lost and consumes MORE space\n");
         assert(false);
-    } else if (N == 8 || N == 4 || N == 2 || N == 1) {
+    } else if (N == 8) {
+        double this_fp;
         for (int my_idx = 0; my_idx < N; ++my_idx) {
-            // parse cache line per 64 bits, convert to double, shift and sum
-            for (int intra = 0; intra < 8/N; ++intra) {
-                memcpy(&this_int, cache_line + 64/N * my_idx + intra * 8, 8);
-                this_fp = static_cast<double>(this_int);
-                if (intra == 0) {
-                    fp_array[my_idx] = this_fp * pow(2.0, (intra * N * 16.0));
-                } else {
-                    fp_array[my_idx] += this_fp * pow(2.0, (intra * N * 16.0));
-                }
+            memcpy(&this_int, cache_line + 64/N * my_idx, 8);
+            this_fp = static_cast<double>(this_int);
+            fp_array[my_idx] = this_fp;
+        }
+        memcpy(fp_out, &fp_array, N * sizeof(double));
+    } else if (N == 4) {
+        double this_fp;
+        double next_fp;
+        for (int my_idx = 0; my_idx < N; ++my_idx) {
+            fp_array[my_idx] = 0.0;
+            memcpy(&this_int, cache_line + 64/N * my_idx, 8);
+            memcpy(&next_int, cache_line + 64/N * my_idx + 8, 8);
+            // interleave bytes of this_int and next_int
+            for (int intra = 0; intra < 8; ++intra) {
+                UINT32 mask = 0xFF << (intra * 8);
+                INT64 this_int_byte = ((this_int & mask) >> (intra * 8)) & 0xFF;
+                INT64 next_int_byte = ((next_int & mask) >> (intra * 8)) & 0xFF;
+                this_fp = static_cast<double>(this_int_byte);
+                next_fp = static_cast<double>(next_int_byte);
+                this_fp = this_fp * pow(2.0, 2 * intra * 8);
+                next_fp = next_fp * pow(2.0, ((2 * intra) + 1) * 8);
+                fp_array[my_idx] += this_fp + next_fp;
             }
-            // printf("produced double fp value: %.0f\n", fp_array[my_idx]);
         }
         memcpy(fp_out, &fp_array, N * sizeof(double));
     } else {
@@ -161,6 +174,7 @@ VOID CacheDoubleFPDecompress(double* fp_in, char *cache_line, int N) {
         for (int my_idx = 0; my_idx < N; ++my_idx) {
             this_fp = fp_in[my_idx];
 
+            // printf("compressed value %d: %.0f\n", my_idx, this_fp);
             int fp_str_len = snprintf(NULL, 0, "%.0f", this_fp);
             char* fp_cstr = (char *)malloc(fp_str_len + 1);
             snprintf(fp_cstr, fp_str_len + 1, "%.0f", this_fp);
@@ -211,8 +225,16 @@ VOID CacheDoubleFPDecompress(double* fp_in, char *cache_line, int N) {
                 }
             }
             // printf("two's complement binary of %d: %s\n", my_idx, fp_str_bin.c_str());
-            std::string str_front = fp_str_bin.substr(0, 64);
-            std::string str_back = fp_str_bin.substr(64, 64);
+            std::string str_front = fp_str_bin.substr(0, 8) +
+                fp_str_bin.substr(16, 8) + fp_str_bin.substr(32, 8) +
+                fp_str_bin.substr(48, 8) + fp_str_bin.substr(64, 8) +
+                fp_str_bin.substr(80, 8) + fp_str_bin.substr(96, 8) +
+                fp_str_bin.substr(112, 8);
+            std::string str_back = fp_str_bin.substr(8, 8) +
+                fp_str_bin.substr(24, 8) + fp_str_bin.substr(40, 8) +
+                fp_str_bin.substr(56, 8) + fp_str_bin.substr(72, 8) +
+                fp_str_bin.substr(88, 8) + fp_str_bin.substr(104, 8) +
+                fp_str_bin.substr(120, 8);
             // printf("str_front: %s, str_back: %s\n", str_front.c_str(), str_back.c_str());
             INT64 front_val = strtoll(str_front.c_str(), NULL, 2);
             INT64 back_val = strtoll(str_back.c_str(), NULL, 2);
