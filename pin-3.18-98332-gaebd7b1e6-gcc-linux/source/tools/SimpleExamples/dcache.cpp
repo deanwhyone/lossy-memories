@@ -97,6 +97,19 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 // conceptually this is an array indexed by instruction address
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
+std::map<ADDRINT, ADDRINT> cMap;
+
+BOOL CheckCompressible(ADDRINT addr) {
+    fprintf(trace, "Address is %lx\n", addr);
+    for (std::pair<ADDRINT, ADDRINT> element : cMap) {
+        if ((element.first <= addr) && (addr < (element.first + element.second))) {
+            fprintf(trace, "Data is Compressable\n");
+            return true;
+        }
+    }
+    return false;
+}
+
 // Print a memory read record
 VOID RecordMemRead(VOID * ip, VOID * addr, BOOL hit) {
     int value;
@@ -125,7 +138,7 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 {
     // first level D-cache
     const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD);
-
+    CheckCompressible(addr);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     profile[instId][counter]++;
 }
@@ -136,7 +149,7 @@ VOID StoreMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 {
     // first level D-cache
     const BOOL dl1Hit = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE);
-
+    CheckCompressible(addr);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     profile[instId][counter]++;
 }
@@ -148,6 +161,7 @@ VOID LoadSingle(VOID * ip, ADDRINT addr, UINT32 instId)
     // @todo we may access several cache lines for 
     // first level D-cache
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_LOAD);
+    CheckCompressible(addr);
     RecordMemRead(ip, (VOID *)addr, dl1Hit);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     profile[instId][counter]++;
@@ -159,6 +173,7 @@ VOID StoreSingle(VOID * ip, ADDRINT addr, UINT32 instId)
     // @todo we may access several cache lines for 
     // first level D-cache
     const BOOL dl1Hit = dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_STORE);
+    CheckCompressible(addr);
     RecordMemWrite(ip, (VOID *)addr, dl1Hit);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     profile[instId][counter]++;
@@ -169,6 +184,7 @@ VOID StoreSingle(VOID * ip, ADDRINT addr, UINT32 instId)
 VOID LoadMultiFast(ADDRINT addr, UINT32 size)
 {
     dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD);
+    CheckCompressible(addr);
 }
 
 /* ===================================================================== */
@@ -176,20 +192,23 @@ VOID LoadMultiFast(ADDRINT addr, UINT32 size)
 VOID StoreMultiFast(ADDRINT addr, UINT32 size)
 {
     dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE);
+    CheckCompressible(addr);
 }
 
 /* ===================================================================== */
 
 VOID LoadSingleFast(ADDRINT addr)
 {
-    dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_LOAD);    
+    dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_LOAD);   
+    CheckCompressible(addr); 
 }
 
 /* ===================================================================== */
 
 VOID StoreSingleFast(ADDRINT addr)
 {
-    dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_STORE);    
+    dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_STORE);
+    CheckCompressible(addr);    
 }
 
 
@@ -356,6 +375,7 @@ VOID Fini(int code, VOID * v)
 
 VOID MarkCompressable(ADDRINT addr, ADDRINT size) {
     fprintf(trace, "Marking addr %lx with size %ld as compressable\n", addr, size);
+    cMap[addr] = size;
 }
 
 VOID Compress(IMG img, VOID *v) {
