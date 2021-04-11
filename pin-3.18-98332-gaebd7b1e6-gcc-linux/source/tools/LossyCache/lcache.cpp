@@ -78,7 +78,7 @@ namespace LCACHE_L1
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
-    const bool keep_data = true;
+    const BOOL keep_data = true;
 
     typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
 }
@@ -88,7 +88,7 @@ namespace LCACHE_L2
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
-    const bool keep_data = false;
+    const BOOL keep_data = false;
 
     typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
 }
@@ -119,6 +119,21 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> il1_profile;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> dl1_profile;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> l2_profile;
+
+/* ===================================================================== */
+
+std::map<ADDRINT, ADDRINT> cMap;
+
+BOOL CheckCompressible(ADDRINT addr) {
+    outFile << "Address is " << addr << endl;
+    for (std::pair<ADDRINT, ADDRINT> element : cMap) {
+        if ((element.first <= addr) && (addr < (element.first + element.second))) {
+            outFile << "Data is Compressable" << endl;
+            return true;
+        }
+    }
+    return false;
+}
 
 /* ===================================================================== */
 
@@ -321,7 +336,7 @@ VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
 
 /* ===================================================================== */
 
-VOID Instruction(INS ins, void * v)
+VOID Instruction(INS ins, void *v)
 {
     // all instructions incur a memory read for the instruction pointer
     const ADDRINT iaddr = INS_Address(ins);
@@ -407,7 +422,34 @@ VOID Instruction(INS ins, void * v)
 
 /* ===================================================================== */
 
-VOID Fini(int code, VOID * v)
+VOID MarkCompressible(ADDRINT addr, ADDRINT size) {
+    outFile << "Marking addr 0x" << std::hex << addr << " with size " << size << " as compressible" << endl;
+    cMap[addr] = size;
+}
+
+VOID Compress(IMG img, VOID *v) {
+    for (SYM sym = IMG_RegsymHead(img); SYM_Valid(sym); sym = SYM_Next(sym)) {
+        string undFuncName = PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY);
+        //  Find the __COMPRESS__() function.
+        if (undFuncName == "__COMPRESS__") {
+            RTN compressRtn = RTN_FindByAddress(IMG_LowAddress(img) + SYM_Value(sym));
+            if (RTN_Valid(compressRtn)) {
+                RTN_Open(compressRtn);
+
+                RTN_InsertCall(compressRtn, IPOINT_BEFORE, (AFUNPTR)MarkCompressible,
+                               IARG_FUNCARG_ENTRYPOINT_VALUE, 0,
+                               IARG_FUNCARG_ENTRYPOINT_VALUE, 1,
+                               IARG_END);
+
+                RTN_Close(compressRtn);
+            }
+        }
+    }
+}
+
+/* ===================================================================== */
+
+VOID Fini(int code, VOID *v)
 {
     // print cache profiles
     // @todo what does this print
@@ -488,6 +530,7 @@ int main(int argc, char *argv[])
     l2_profile.SetThreshold( threshold );
 
     INS_AddInstrumentFunction(Instruction, 0);
+    IMG_AddInstrumentFunction(Compress, 0);
     PIN_AddFiniFunction(Fini, 0);
 
     /* testing compression functions */
