@@ -13,6 +13,50 @@
 using namespace cv;
 using namespace std;
 
+void __COMPRESS__(void *ptr, size_t size) {
+   (void)ptr;
+   (void)size;
+   return;
+}
+
+string typeToStr(int type) {
+  string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
+
+void markMatCompressible(Mat mat) {
+    Size mat_size = mat.size();
+    size_t mat_elem_size = mat.elemSize();
+
+    unsigned char* mat_data_ptr = mat.data;
+    for (size_t col_idx = 0; col_idx < mat_size.height; ++col_idx) {
+        for (size_t row_idx = 0; row_idx < mat_size.width; ++row_idx) {
+            __COMPRESS__(
+                (mat_data_ptr + mat_elem_size * (mat_size.width * col_idx + row_idx)),
+                sizeof(unsigned char)
+            );
+        }
+    }
+}
+
 /**
  * @function main
  */
@@ -33,7 +77,7 @@ int main( int argc, char** argv )
 
     //![variables]
     // First we declare the variables we are going to use
-    Mat image, src, src_gray;
+    Mat image, src, src_grey;
     Mat grad;
     const String window_name = "Sobel Demo - Simple Edge Detector";
     int ksize = parser.get<int>("ksize");
@@ -52,19 +96,20 @@ int main( int argc, char** argv )
         printf("Error opening image: %s\n", imageName.c_str());
         return EXIT_FAILURE;
     }
+    markMatCompressible(image);
     //![load]
 
     //![reduce_noise]
     // Remove noise by blurring with a Gaussian filter ( kernel size = 3 )
     GaussianBlur(image, src, Size(3, 3), 0, 0, BORDER_DEFAULT);
     //![reduce_noise]
+    markMatCompressible(src);
 
     //![convert_to_gray]
     // Convert the image to grayscale
-    cvtColor(src, src_gray, COLOR_BGR2GRAY);
+    cvtColor(src, src_grey, COLOR_BGR2GRAY);
     //![convert_to_gray]
-
-    cout << "src_gray is located at " << &src_gray << std::endl;
+    markMatCompressible(src_grey);
 
     //![sobel]
     /// Generate grad_x and grad_y
@@ -72,16 +117,20 @@ int main( int argc, char** argv )
     Mat abs_grad_x, abs_grad_y;
 
     /// Gradient X
-    Sobel(src_gray, grad_x, ddepth, 1, 0, ksize, scale, delta, BORDER_DEFAULT);
+    Sobel(src_grey, grad_x, ddepth, 1, 0, ksize, scale, delta, BORDER_DEFAULT);
+    markMatCompressible(grad_x);
 
     /// Gradient Y
-    Sobel(src_gray, grad_y, ddepth, 0, 1, ksize, scale, delta, BORDER_DEFAULT);
+    Sobel(src_grey, grad_y, ddepth, 0, 1, ksize, scale, delta, BORDER_DEFAULT);
+    markMatCompressible(grad_y);
     //![sobel]
 
     //![convert]
     // converting back to CV_8U
     convertScaleAbs(grad_x, abs_grad_x);
     convertScaleAbs(grad_y, abs_grad_y);
+    markMatCompressible(abs_grad_x);
+    markMatCompressible(abs_grad_y);
     //![convert]
 
     //![blend]
