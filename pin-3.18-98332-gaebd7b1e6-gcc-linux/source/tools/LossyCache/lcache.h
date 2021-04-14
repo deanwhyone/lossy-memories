@@ -188,7 +188,7 @@ class ROUND_ROBIN {
 /*!
  *  @brief Cache set with least recently used replacement
  */
-template <UINT32 MAX_ASSOCIATIVITY = 4, UINT32 LINE_SIZE = 64, bool DATA = false>
+template <UINT32 MAX_ASSOCIATIVITY = 16, UINT32 LINE_SIZE = 64, bool DATA = false>
 class LRU {
   private:
     CACHE_TAG _tags[MAX_ASSOCIATIVITY];
