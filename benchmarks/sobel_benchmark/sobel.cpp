@@ -47,12 +47,18 @@ void markMatCompressible(Mat mat) {
     size_t mat_elem_size = mat.elemSize();
 
     unsigned char* mat_data_ptr = mat.data;
-    for (size_t col_idx = 0; col_idx < mat_size.height; ++col_idx) {
-        for (size_t row_idx = 0; row_idx < mat_size.width; ++row_idx) {
-            __COMPRESS__(
-                (mat_data_ptr + mat_elem_size * (mat_size.width * col_idx + row_idx)),
-                sizeof(unsigned char)
-            );
+    if (mat.isContinuous()) {
+        __COMPRESS__(mat_data_ptr,
+                    mat_elem_size * mat_size.height * mat_size.width
+        );
+    } else {
+        for (size_t col_idx = 0; col_idx < mat_size.height; ++col_idx) {
+            for (size_t row_idx = 0; row_idx < mat_size.width; ++row_idx) {
+                __COMPRESS__(
+                    (mat_data_ptr + mat_elem_size * (mat_size.width * col_idx + row_idx)),
+                    mat_elem_size
+                );
+            }
         }
     }
 }
