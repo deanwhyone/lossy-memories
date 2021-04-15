@@ -30,6 +30,8 @@
 typedef UINT64 CACHE_STATS; // type of cache hit/miss counters
 
 #include "compression.h"
+#include <algorithm>
+#include <deque>
 #include <sstream>
 using std::string;
 using std::ostringstream;
@@ -88,7 +90,8 @@ class CACHE_TAG {
   private:
     ADDRINT _tag;
   public:
-    CACHE_TAG(ADDRINT tag = 0) { _tag = tag; }
+    BOOL _dirty;
+    CACHE_TAG(ADDRINT tag = 0) { _tag = tag; _dirty = false; }
     bool operator==(const CACHE_TAG &right) const { return _tag == right._tag; }
     operator ADDRINT() const { return _tag; }
 };
@@ -103,6 +106,7 @@ struct CACHE_ACCESS_STRUCT {
     // more useful stuff
     ADDRINT evicted_addr;
     CACHE_TAG evicted_tag;
+    std::vector<char> evicted_data;
     bool evicted_dirty;
 
     operator bool() {return hit;} // allow implicit cast
@@ -191,26 +195,20 @@ class ROUND_ROBIN {
 template <UINT32 MAX_ASSOCIATIVITY = 16, UINT32 LINE_SIZE = 64, bool DATA = false>
 class LRU {
   private:
-    CACHE_TAG _tags[MAX_ASSOCIATIVITY];
     UINT32 _tagsLastIndex;
-    UINT64 _timeSinceAccess[MAX_ASSOCIATIVITY];
-    UINT32 _dirty[MAX_ASSOCIATIVITY];
+    std::deque<CACHE_TAG> _tags_lru;
     bool _dataTrack;
-    char _dataValue[MAX_ASSOCIATIVITY][LINE_SIZE];
+    std::map<CACHE_TAG, std::vector<char>> _dataValues;
 
   public:
     CACHE_TAG _evicted_tag;
-    bool _evicted_dirty;
+    BOOL _evicted_dirty;
+    std::vector<char> _evicted_data;
 
     LRU(UINT32 associativity = MAX_ASSOCIATIVITY)
         : _tagsLastIndex(associativity - 1) {
 
         ASSERTX(associativity <= MAX_ASSOCIATIVITY);
-
-        for (INT32 index = _tagsLastIndex; index >= 0; index--) {
-            _tags[index] = CACHE_TAG(0);
-            _timeSinceAccess[index] = UINT64_MAX;
-        }
 
         _dataTrack = DATA;
     }
@@ -223,104 +221,100 @@ class LRU {
         return _tagsLastIndex + 1;
     }
 
-    UINT32 Find(CACHE_TAG tag) {
+    BOOL Find(CACHE_TAG tag) {
         bool result = true;
 
-        for (UINT32 index = 0; index <= _tagsLastIndex; index++) {
-            if (_timeSinceAccess[index] < UINT64_MAX) {
-                _timeSinceAccess[index]++;
-            }
-        }
-
-        for (UINT32 index = 0; index <= _tagsLastIndex; index++) {
-            if (_tags[index] == tag) {
-                // this is now the most recently used
-                _timeSinceAccess[index] = 0;
-                return result;
-            }
+        if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+            // this is now the most recently used
+            _tags_lru.erase(std::remove(_tags_lru.begin(), _tags_lru.end(), tag), _tags_lru.end());
+            _tags_lru.push_front(tag);
+            return result;
         }
         result = false;
 
         return result;
     }
 
-    VOID Replace(CACHE_TAG tag) {
-        UINT32 index = 0;
-        for (UINT32 myIdx = 0; myIdx <= _tagsLastIndex; myIdx++) {
-            if (_timeSinceAccess[myIdx] > _timeSinceAccess[index]) {
-                index = myIdx;
+    VOID Replace(CACHE_TAG tag, UINT32 size) {
+        if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+            // found tag in cache, error, should not call replace on a cache hit
+            assert(false);
+        } else {
+            // tag not found
+            size_t current_set_size = 0;
+            for (size_t tagIdx = 0; tagIdx < _tags_lru.size(); ++tagIdx) {
+                current_set_size += _dataValues[_tags_lru[tagIdx]].size();
+            }
+            if ((current_set_size + size) < (LINE_SIZE * GetAssociativity(0))) {
+                // ways still open, append new data
+                _tags_lru.push_front(tag);
+                _evicted_dirty = false;
+            } else {
+                // all ways full, evict
+                _evicted_tag = _tags_lru.back();
+                _tags_lru.pop_back();
+                _evicted_dirty = _evicted_tag._dirty;
+                _evicted_data = _dataValues[_evicted_tag];
+                _dataValues.erase(_evicted_tag);
+
+                _tags_lru.push_front(tag);
             }
         }
-        _evicted_tag = _tags[index];
-        _evicted_dirty = _dirty[index];
-
-        _tags[index] = tag;
-        _dirty[index] = 0;
     }
 
     VOID SetDirtyBit(CACHE_TAG tag) {
-        UINT32 index = UINT32_MAX;
-        for (UINT32 myIdx = 0; myIdx <= _tagsLastIndex; myIdx++) {
-            if (tag == _tags[myIdx]) {
-                index = myIdx;
-            }
-        }
-        if (index <= _tagsLastIndex) {
-            _dirty[index] = 1;
+        CACHE_TAG *dirty_tag = &(*(find(_tags_lru.begin(), _tags_lru.end(), tag)));
+
+        if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+            dirty_tag->_dirty = true;
         } else {
             // attempted to set data value of tag not in cache
             // multithreaded?
             printf("SetDirtyBit of tag: %zu\n", ADDRINT(tag));
             printf("Current cache tags: \n");
-            for (UINT32 idx = 0; idx <= _tagsLastIndex; idx++) {
-                printf("%zu\n", ADDRINT(_tags[idx]));
+            for (UINT32 idx = 0; idx <= _tags_lru.size(); idx++) {
+                printf("%zu\n", ADDRINT(_tags_lru[idx]));
             }
             assert(false);
         }
 
     }
 
-    VOID SetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
+    VOID SetDataValue(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size, char* value) {
         if (_dataTrack) {
-            UINT32 index = UINT32_MAX;
-            for (UINT32 myIdx = 0; myIdx <= _tagsLastIndex; myIdx++) {
-                if (tag == _tags[myIdx]) {
-                    index = myIdx;
+            if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+                ADDRINT lineIdx = baseAddr & 0x0000003f;
+                _dataValues[tag].resize(LINE_SIZE);
+                for (size_t idx = 0; idx < size; idx++) {
+                    _dataValues[tag][lineIdx + idx] = value[idx];
                 }
-            }
-            if (index <= _tagsLastIndex) {
-                memset(_dataValue[index], 0, LINE_SIZE*sizeof(char));
-                memcpy(_dataValue[index], value, size);
             } else {
                 // attempted to set data value of tag not in cache
                 // multithreaded?
                 printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
                 printf("Current cache tags: \n");
-                for (UINT32 idx = 0; idx <= _tagsLastIndex; idx++) {
-                    printf("%zu\n", ADDRINT(_tags[idx]));
+                for (UINT32 idx = 0; idx <= _tags_lru.size(); idx++) {
+                    printf("%zu\n", ADDRINT(_tags_lru[idx]));
                 }
                 assert(false);
             }
         }
     }
 
-    VOID GetDataValue(CACHE_TAG tag, UINT32 size, char* value) {
+    VOID GetDataValue(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size, char* value) {
         if (_dataTrack) {
-            UINT32 index = UINT32_MAX;
-            for (UINT32 myIdx = 0; myIdx <= _tagsLastIndex; myIdx++) {
-                if (tag == _tags[myIdx]) {
-                    index = myIdx;
+            if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+                ADDRINT lineIdx = baseAddr & 0x0000003f;
+                for (size_t myIdx = 0; myIdx < size; ++myIdx) {
+                    value[myIdx] = _dataValues[tag][lineIdx + myIdx];
                 }
-            }
-            if (index <= _tagsLastIndex) {
-                memcpy(value, _dataValue[index], size);
             } else {
                 // attempted to set data value of tag not in cache
                 // multithreaded?
                 printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
                 printf("Current cache tags: \n");
-                for (UINT32 idx = 0; idx <= _tagsLastIndex; idx++) {
-                    printf("%zu\n", ADDRINT(_tags[idx]));
+                for (UINT32 idx = 0; idx <= _tags_lru.size(); idx++) {
+                    printf("%zu\n", ADDRINT(_tags_lru[idx]));
                 }
                 assert(false);
             }
@@ -559,19 +553,20 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
             (accessType == ACCESS_TYPE_LOAD ||
                 STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
-            set.Replace(tag);
+            set.Replace(tag, size);
 
             if (set._evicted_dirty) {
                 retval.evicted_tag = set._evicted_tag;
                 retval.evicted_addr = MergeAddress(set._evicted_tag);
                 retval.evicted_dirty = true;
+                retval.evicted_data = set._evicted_data;
             }
         }
         addr = (addr & notLineMask) + lineSize; // start of next cache line
         if (value != NULL) {
-            set.SetDataValue(tag, this_size, value);
+            set.SetDataValue(tag, addr, this_size, value);
             if (accessType == ACCESS_TYPE_LOAD) {
-                set.GetDataValue(tag, this_size, value);
+                set.GetDataValue(tag, addr, this_size, value);
             }
 
             value = value + LINE_SIZE;
@@ -602,12 +597,17 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
 
     bool hit = set.Find(tag);
 
+    // on hit, writes set dirty bit of cache line
+    if (hit && accessType == ACCESS_TYPE_STORE) {
+        set.SetDirtyBit(tag);
+    }
+
     // on miss, loads always allocate, stores optionally
     if ((!hit) &&
         (accessType == ACCESS_TYPE_LOAD ||
             STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
-        set.Replace(tag);
+        set.Replace(tag, size);
         if (set._evicted_dirty) {
             retval.evicted_tag = set._evicted_tag;
             retval.evicted_dirty = true;
@@ -615,9 +615,9 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
     }
 
     if (value != NULL) {
-        set.SetDataValue(tag, size, value);
+        set.SetDataValue(tag, addr, size, value);
         if (accessType == ACCESS_TYPE_LOAD) {
-            set.GetDataValue(tag, size, value);
+            set.GetDataValue(tag, addr, size, value);
         }
     }
 

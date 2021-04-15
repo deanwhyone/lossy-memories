@@ -74,7 +74,7 @@ INT32 Usage()
 // wrap configuation constants into their own name space to avoid name clashes
 namespace LCACHE_L1
 {
-    const UINT32 max_sets = KILO; // cacheSize / (lineSize * associativity);
+    const UINT32 max_sets = 4 * KILO; // cacheSize / (lineSize * associativity);
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
@@ -84,7 +84,7 @@ namespace LCACHE_L1
 }
 namespace LCACHE_L2
 {
-    const UINT32 max_sets = KILO; // cacheSize / (lineSize * associativity);
+    const UINT32 max_sets = 16 * KILO; // cacheSize / (lineSize * associativity);
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
@@ -163,7 +163,7 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 {
     UINT32 size = 64; // granularity of a 64 byte cache line
-    // printf("StoreMultiL2 addr: %p, size %u\n", address, size);
+    // printf("StoreMultiL2 addr: %lx, size %u\n", addr, size);
     // align addr with 64 byte boundary
     addr = addr & 0xfffffffffffffe00;
 
