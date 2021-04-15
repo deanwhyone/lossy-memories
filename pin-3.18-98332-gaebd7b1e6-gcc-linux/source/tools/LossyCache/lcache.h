@@ -106,7 +106,7 @@ struct CACHE_ACCESS_STRUCT {
     // more useful stuff
     ADDRINT evicted_addr;
     CACHE_TAG evicted_tag;
-    std::vector<char> evicted_data;
+    // std::vector<char> evicted_data;
     bool evicted_dirty;
 
     operator bool() {return hit;} // allow implicit cast
@@ -559,7 +559,7 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
                 retval.evicted_tag = set._evicted_tag;
                 retval.evicted_addr = MergeAddress(set._evicted_tag);
                 retval.evicted_dirty = true;
-                retval.evicted_data = set._evicted_data;
+                // retval.evicted_data = set._evicted_data;
             }
         }
         addr = (addr & notLineMask) + lineSize; // start of next cache line
@@ -610,7 +610,9 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
         set.Replace(tag, size);
         if (set._evicted_dirty) {
             retval.evicted_tag = set._evicted_tag;
+            retval.evicted_addr = MergeAddress(set._evicted_tag);
             retval.evicted_dirty = true;
+            // retval.evicted_data = set._evicted_data;
         }
     }
 
