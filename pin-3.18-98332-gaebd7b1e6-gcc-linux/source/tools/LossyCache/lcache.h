@@ -105,8 +105,7 @@ struct CACHE_ACCESS_STRUCT {
 
     // more useful stuff
     ADDRINT evicted_addr;
-    CACHE_TAG evicted_tag;
-    // std::vector<char> evicted_data;
+    char evicted_data[64];
     bool evicted_dirty;
 
     operator bool() {return hit;} // allow implicit cast
@@ -211,6 +210,8 @@ class LRU {
         ASSERTX(associativity <= MAX_ASSOCIATIVITY);
 
         _dataTrack = DATA;
+        _tags_lru = std::deque<CACHE_TAG>();
+        _dataValues = std::map<CACHE_TAG, std::vector<char>>();
     }
 
     VOID SetAssociativity(UINT32 associativity) {
@@ -236,7 +237,14 @@ class LRU {
     }
 
     VOID Replace(CACHE_TAG tag, UINT32 size) {
-        if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+        BOOL tag_in_set = false;
+        for (size_t lruIdx = 0; lruIdx < _tags_lru.size(); ++lruIdx) {
+            if (_tags_lru[lruIdx] == tag) {
+                tag_in_set = true;
+                break;
+            }
+        }
+        if (tag_in_set) {
             // found tag in cache, error, should not call replace on a cache hit
             assert(false);
         } else {
@@ -282,11 +290,27 @@ class LRU {
 
     VOID SetDataValue(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size, char* value) {
         if (_dataTrack) {
-            if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+            BOOL tag_in_set = false;
+            for (size_t lruIdx = 0; lruIdx < _tags_lru.size(); ++lruIdx) {
+                if (_tags_lru[lruIdx] == tag) {
+                    tag_in_set = true;
+                    break;
+                }
+            }
+            if (tag_in_set) {
+                std::vector<char> thisData;
+                thisData.resize(64);
+
                 ADDRINT lineIdx = baseAddr & 0x0000003f;
-                _dataValues[tag].resize(LINE_SIZE);
                 for (size_t idx = 0; idx < size; idx++) {
-                    _dataValues[tag][lineIdx + idx] = value[idx];
+                    thisData[lineIdx + idx] = value[idx];
+                }
+                if (_dataValues[tag].size() != 64) {
+                    _dataValues[tag].resize(64);
+                }
+
+                for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
+                    _dataValues[tag][idx] = thisData[idx];
                 }
             } else {
                 // attempted to set data value of tag not in cache
@@ -517,6 +541,7 @@ template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION, UINT32 LINE_SIZE>
 CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
     CACHE_ACCESS_STRUCT retval;
     retval.evicted_dirty = false;
+
     const ADDRINT highAddr = addr + size;
     bool allHit = true;
 
@@ -525,7 +550,10 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
     const ADDRINT notLineMask = ~(lineSize - 1);
     UINT32 this_size;
 
+    UINT32 loop_ctr = 0;
+
     do {
+        // need to handle misaligned accesses
         if (size > LINE_SIZE) {
             this_size = LINE_SIZE;
             size = size - LINE_SIZE;
@@ -556,10 +584,12 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
             set.Replace(tag, size);
 
             if (set._evicted_dirty) {
-                retval.evicted_tag = set._evicted_tag;
                 retval.evicted_addr = MergeAddress(set._evicted_tag);
                 retval.evicted_dirty = true;
-                // retval.evicted_data = set._evicted_data;
+                // retval.evicted_data.resize(loop_ctr);
+                // for (size_t dataIdx = 0; dataIdx < set._evicted_data.size(); ++dataIdx) {
+                //     retval.evicted_data[0].push_back(set._evicted_data[dataIdx]);
+                // }
             }
         }
         addr = (addr & notLineMask) + lineSize; // start of next cache line
@@ -571,6 +601,7 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
 
             value = value + LINE_SIZE;
         }
+        loop_ctr++;
     } while (addr < highAddr);
 
     _access[accessType][allHit]++;
@@ -588,6 +619,7 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
     assert(size <= LINE_SIZE);
     CACHE_ACCESS_STRUCT retval;
     retval.evicted_dirty = false;
+
     CACHE_TAG tag;
     UINT32 setIndex;
 
@@ -609,10 +641,12 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
 
         set.Replace(tag, size);
         if (set._evicted_dirty) {
-            retval.evicted_tag = set._evicted_tag;
             retval.evicted_addr = MergeAddress(set._evicted_tag);
             retval.evicted_dirty = true;
-            // retval.evicted_data = set._evicted_data;
+            // retval.evicted_data.resize(1);
+            // for (size_t dataIdx = 0; dataIdx < set._evicted_data.size(); ++dataIdx) {
+            //     retval.evicted_data[0].push_back(set._evicted_data[dataIdx]);
+            // }
         }
     }
 

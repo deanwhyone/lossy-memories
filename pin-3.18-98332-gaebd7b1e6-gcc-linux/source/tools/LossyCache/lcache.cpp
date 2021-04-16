@@ -125,10 +125,10 @@ COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> l2_profile;
 std::map<ADDRINT, ADDRINT> cMap;
 
 BOOL CheckCompressible(ADDRINT addr) {
-    outFile << "Address is " << addr << endl;
+    // outFile << "Address is " << addr << endl;
     for (std::pair<ADDRINT, ADDRINT> element : cMap) {
         if ((element.first <= addr) && (addr < (element.first + element.second))) {
-            outFile << "Data is Compressable" << endl;
+            // outFile << "Data is Compressable" << endl;
             return true;
         }
     }
@@ -145,6 +145,7 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 {
     UINT32 size = 64; // granularity of a 64 byte cache line
     // printf("LoadMultiL2 addr: 0x%lx, size %u\n", addr, size);
+    // fflush(stdout);
 
     // align addr with 64 byte boundary
     addr = addr & 0xfffffffffffffe00;
@@ -153,6 +154,8 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 
     const COUNTER counter = l2Hit ? COUNTER_HIT : COUNTER_MISS;
     l2_profile[instId][counter]++;
+    // printf("LML2 done\n");
+    // fflush(stdout);
 }
 
 /* ===================================================================== */
@@ -164,6 +167,7 @@ VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 {
     UINT32 size = 64; // granularity of a 64 byte cache line
     // printf("StoreMultiL2 addr: %lx, size %u\n", addr, size);
+    // fflush(stdout);
     // align addr with 64 byte boundary
     addr = addr & 0xfffffffffffffe00;
 
@@ -171,6 +175,8 @@ VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 
     const COUNTER counter = l2Hit ? COUNTER_HIT : COUNTER_MISS;
     l2_profile[instId][counter]++;
+    // printf("SML2 done\n");
+    // fflush(stdout);
 }
 
 /* ===================================================================== */
@@ -178,11 +184,16 @@ VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 {
     // printf("LoadMulti addr: 0x%lx, size %u\n", addr, size);
+    // fflush(stdout);
     char* value = (char*)malloc(size);
 
     UINT64 val, nval;
     val = 0;
-    PIN_SafeCopy(&val, (void*)addr, 8); // only check first 8 bytes
+    if (size >= 8) {
+        PIN_SafeCopy(&val, (void*)addr, 8); // only check first 8 bytes
+    } else {
+        PIN_SafeCopy(&val, (void*)addr, size);
+    }
 
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
@@ -190,9 +201,14 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
     const BOOL dl1Hit = dl1Access.hit;
 
     nval = 0;
-    PIN_SafeCopy(&nval, (void*)value, 8);
+    if (size >= 8) {
+        PIN_SafeCopy(&nval, (void*)value, 8);
+    } else {
+        PIN_SafeCopy(&nval, (void*)value, size);
+    }
     if (val != nval) {
         printf("lm: prior %zu, after %zu\n", val, nval);
+        fflush(stdout);
     }
     assert(val == nval); // check that actual value matches value in cache
 
@@ -209,20 +225,27 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
     if (dl1Access.evicted_dirty) {
         StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
     }
+    // printf("LM done\n");
+    // fflush(stdout);
 }
 
-/* ===================================================================== */
+// /* ===================================================================== */
 
 VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
 {
     // printf("StoreMulti addr: %p, size %u\n", address, size);
+    // fflush(stdout);
     char* value = (char*)malloc(size);
 
     ADDRINT addr = (ADDRINT)address;
 
     UINT64 val, nval;
     val = 0;
-    PIN_SafeCopy(&val, (void*)addr, 8); // only check first 8 bytes
+    if (size >= 8) {
+        PIN_SafeCopy(&val, (void*)addr, 8); // only check first 8 bytes
+    } else {
+        PIN_SafeCopy(&val, (void*)addr, size);
+    }
 
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
@@ -230,7 +253,11 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
     const BOOL dl1Hit = dl1Access.hit;
 
     nval = 0;
-    PIN_SafeCopy(&nval, (void*)value, 8);
+    if (size >= 8) {
+        PIN_SafeCopy(&nval, (void*)value, 8);
+    } else {
+        PIN_SafeCopy(&nval, (void*)value, size);
+    }
     assert(val == nval); // check that actual value matches value in cache
 
     free(value);
@@ -242,6 +269,8 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
     if (dl1Access.evicted_dirty) {
         StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
     }
+    // printf("SM done\n");
+    // fflush(stdout);
 }
 
 /* ===================================================================== */
@@ -249,19 +278,23 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
 VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
 {
     // printf("LoadSingle addr: 0x%lx, size %u\n", addr, size);
+    // fflush(stdout);
     char* value = (char*)malloc(size);
-
     UINT64 val = 0;
     PIN_SafeCopy(&val, (void*)addr, size);
-
     PIN_SafeCopy(value, (void*)addr, size);
 
     // first level D-cache
     const CACHE_ACCESS_STRUCT dl1Access = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
     const BOOL dl1Hit = dl1Access.hit;
 
+
     UINT64 nval = 0;
     PIN_SafeCopy(&nval, (void*)value, size);
+    if (val != nval) {
+        printf("ls: prior %zu, after %zu\n", val, nval);
+        fflush(stdout);
+    }
     assert(val == nval); // check that actual value matches value in cache
 
     PIN_SafeCopy((void*)addr, (void*)value, size); // copying value from cache into mem
@@ -277,6 +310,8 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
     if (dl1Access.evicted_dirty) {
         StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
     }
+    // printf("LS done\n");
+    // fflush(stdout);
 }
 
 /* ===================================================================== */
@@ -284,16 +319,15 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
 VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
 {
     // printf("StoreSingle addr: %p, size %u\n", address, size);
+    // fflush(stdout);
     char* value = (char*)malloc(size);
 
     ADDRINT addr = (ADDRINT)address;
 
     UINT64 val = 0;
     PIN_SafeCopy(&val, (void*)addr, size);
-
     PIN_SafeCopy(value, (void*)addr, size);
-    // @todo we may access several cache lines for
-    // first level D-cache
+
     const CACHE_ACCESS_STRUCT dl1Access = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
     const BOOL dl1Hit = dl1Access.hit;
 
@@ -310,17 +344,21 @@ VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
     if (dl1Access.evicted_dirty) {
         StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
     }
+    // printf("SS done\n");
+    // fflush(stdout);
 }
 
 /* ===================================================================== */
 
 VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
 {
+    // printf("LoadSingleInstruction addr: %lx\n", addr);
+    // fflush(stdout);
     // assume 64 bit instruction
     UINT32 size = 8;
 
     const CACHE_ACCESS_STRUCT il1Access = il1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, NULL);
-    const BOOL il1Hit= il1Access.hit;
+    const BOOL il1Hit = il1Access.hit;
 
     const COUNTER counter = il1Hit ? COUNTER_HIT : COUNTER_MISS;
     il1_profile[instId][counter]++;
@@ -329,9 +367,11 @@ VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
     if (!il1Hit) {
         LoadMultiL2(addr, L1I_CACHE, instId);
     }
-    if (il1Access.evicted_dirty) {
-        StoreMultiL2(il1Access.evicted_addr, L1I_CACHE, instId);
-    }
+
+    // icache should never evict anything dirty because never written
+    assert(!il1Access.evicted_dirty);
+    // printf("LSI done\n");
+    // fflush(stdout);
 }
 
 /* ===================================================================== */
@@ -349,9 +389,6 @@ VOID Instruction(INS ins, void *v)
         IARG_ADDRINT, iaddr, IARG_UINT32, instId,
         IARG_END);
 
-    // map sparse INS addresses to dense IDs
-    instId = dl1_profile.Map(iaddr);
-
     if (!INS_IsStandardMemop(ins)) return;
 
     UINT32 memOperands = INS_MemoryOperandCount(ins);
@@ -360,11 +397,14 @@ VOID Instruction(INS ins, void *v)
     UINT32 readSize=0, writeSize=0;
     UINT32 readOperandCount=0, writeOperandCount=0;
 
+    // map sparse INS addresses to dense IDs
+    instId = dl1_profile.Map(iaddr);
+
     for (UINT32 opIdx = 0; opIdx < INS_MemoryOperandCount(ins); opIdx++) {
         if (INS_MemoryOperandIsRead(ins, opIdx)) {
             readSize = INS_MemoryOperandSize(ins, opIdx);
 
-            const BOOL single = (readSize <= 8);
+            const BOOL single = (readSize <= 1);
 
             if ( single )
             {
@@ -390,7 +430,7 @@ VOID Instruction(INS ins, void *v)
         if (INS_MemoryOperandIsWritten(ins, opIdx)) {
             writeSize = INS_MemoryOperandSize(ins, opIdx);
 
-            const BOOL single = (writeSize <= 8);
+            const BOOL single = (writeSize <= 1);
 
             if (INS_IsValidForIpointAfter(ins))
             {
@@ -423,7 +463,7 @@ VOID Instruction(INS ins, void *v)
 /* ===================================================================== */
 
 VOID MarkCompressible(ADDRINT addr, ADDRINT size) {
-    outFile << "Marking addr 0x" << std::hex << addr << " with size " << size << " as compressible" << endl;
+    // outFile << "Marking addr 0x" << std::hex << addr << " with size " << size << " as compressible" << endl;
     cMap[addr] = size;
 }
 
