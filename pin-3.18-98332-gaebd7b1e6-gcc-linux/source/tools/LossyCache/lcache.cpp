@@ -141,9 +141,10 @@ BOOL CheckCompressible(ADDRINT addr) {
  * Called on load miss in either L1 cache
  * Always loads a full cache line from L2, store into appropriate L1
  */
-VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
+VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId)
 {
     UINT32 size = 64; // granularity of a 64 byte cache line
+    UINT32 instId = l2_profile.Map(addr);
     // printf("LoadMultiL2 addr: 0x%lx, size %u\n", addr, size);
     // fflush(stdout);
 
@@ -163,9 +164,10 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
 /*
  * Called on eviction of dirty data in L1D (L1I never evicts dirty data)
  */
-VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, UINT32 instId)
+VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId)
 {
     UINT32 size = 64; // granularity of a 64 byte cache line
+    UINT32 instId = l2_profile.Map(addr);
     // printf("StoreMultiL2 addr: %lx, size %u\n", addr, size);
     // fflush(stdout);
     // align addr with 64 byte boundary
@@ -220,10 +222,10 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 
     // call L2 cache as needed
     if (!dl1Hit) {
-        LoadMultiL2(addr, L1D_CACHE, instId);
+        LoadMultiL2(addr, L1D_CACHE);
     }
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
     }
     // printf("LM done\n");
     // fflush(stdout);
@@ -267,7 +269,7 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
     // write-back cache never triggers miss on write
     // value is allocated in cache w/ dirty bit and the cache pushes on eviction
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
     }
     // printf("SM done\n");
     // fflush(stdout);
@@ -305,10 +307,10 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
 
     // call L2 cache as needed
     if (!dl1Hit) {
-        LoadMultiL2(addr, L1D_CACHE, instId);
+        LoadMultiL2(addr, L1D_CACHE);
     }
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
     }
     // printf("LS done\n");
     // fflush(stdout);
@@ -342,7 +344,7 @@ VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
     // write-back cache never triggers miss on write
     // value is allocated in cache w/ dirty bit and the cache pushes on eviction
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE, instId);
+        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
     }
     // printf("SS done\n");
     // fflush(stdout);
@@ -365,7 +367,7 @@ VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
 
     // call L2 cache as needed
     if (!il1Hit) {
-        LoadMultiL2(addr, L1I_CACHE, instId);
+        LoadMultiL2(addr, L1I_CACHE);
     }
 
     // icache should never evict anything dirty because never written

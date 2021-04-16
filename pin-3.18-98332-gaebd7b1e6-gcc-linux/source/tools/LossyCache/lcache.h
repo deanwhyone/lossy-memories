@@ -105,7 +105,7 @@ struct CACHE_ACCESS_STRUCT {
 
     // more useful stuff
     ADDRINT evicted_addr;
-    char evicted_data[64];
+    std::vector<std::vector<char>> evicted_data;
     bool evicted_dirty;
 
     operator bool() {return hit;} // allow implicit cast
@@ -197,6 +197,8 @@ class LRU {
     UINT32 _tagsLastIndex;
     std::deque<CACHE_TAG> _tags_lru;
     bool _dataTrack;
+    // for compressed data make this into a pair, then hold a bool for compressed
+    // this is used in replace to modify current set size calculation
     std::map<CACHE_TAG, std::vector<char>> _dataValues;
 
   public:
@@ -550,16 +552,20 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
     const ADDRINT notLineMask = ~(lineSize - 1);
     UINT32 this_size;
 
-    UINT32 loop_ctr = 0;
-
     do {
         // need to handle misaligned accesses
-        if (size > LINE_SIZE) {
-            this_size = LINE_SIZE;
-            size = size - LINE_SIZE;
+        if (size % LINE_SIZE == 0) {
+            if (size > LINE_SIZE) {
+                this_size = LINE_SIZE;
+                size = size - this_size;
+            } else {
+                this_size = size;
+            }
         } else {
-            this_size = size;
+            this_size = size % LINE_SIZE;
+            size = size - this_size;
         }
+
 
         CACHE_TAG tag;
         UINT32 setIndex;
@@ -586,10 +592,11 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
             if (set._evicted_dirty) {
                 retval.evicted_addr = MergeAddress(set._evicted_tag);
                 retval.evicted_dirty = true;
-                // retval.evicted_data.resize(loop_ctr);
-                // for (size_t dataIdx = 0; dataIdx < set._evicted_data.size(); ++dataIdx) {
-                //     retval.evicted_data[0].push_back(set._evicted_data[dataIdx]);
-                // }
+                std::vector<char> evictedData;
+                for (size_t dataIdx = 0; dataIdx < set._evicted_data.size(); ++dataIdx) {
+                    evictedData.push_back(set._evicted_data[dataIdx]);
+                }
+                retval.evicted_data.push_back(evictedData);
             }
         }
         addr = (addr & notLineMask) + lineSize; // start of next cache line
@@ -601,7 +608,6 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
 
             value = value + LINE_SIZE;
         }
-        loop_ctr++;
     } while (addr < highAddr);
 
     _access[accessType][allHit]++;
@@ -643,10 +649,10 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
         if (set._evicted_dirty) {
             retval.evicted_addr = MergeAddress(set._evicted_tag);
             retval.evicted_dirty = true;
-            // retval.evicted_data.resize(1);
-            // for (size_t dataIdx = 0; dataIdx < set._evicted_data.size(); ++dataIdx) {
-            //     retval.evicted_data[0].push_back(set._evicted_data[dataIdx]);
-            // }
+            retval.evicted_data.resize(1);
+            for (size_t dataIdx = 0; dataIdx < set._evicted_data.size(); ++dataIdx) {
+                retval.evicted_data[0].push_back(set._evicted_data[dataIdx]);
+            }
         }
     }
 
