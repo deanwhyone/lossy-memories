@@ -197,9 +197,9 @@ class LRU {
     UINT32 _tagsLastIndex;
     std::deque<CACHE_TAG> _tags_lru;
     bool _dataTrack;
-    // for compressed data make this into a pair, then hold a bool for compressed
-    // this is used in replace to modify current set size calculation
-    std::map<CACHE_TAG, std::vector<char>> _dataValues;
+    // first in each pair holds the data, second holds the size.
+    // size may not equal first.size() if compression is used
+    std::map<CACHE_TAG, std::pair<std::vector<char>, UINT32>> _dataValues;
 
   public:
     CACHE_TAG _evicted_tag;
@@ -213,7 +213,6 @@ class LRU {
 
         _dataTrack = DATA;
         _tags_lru = std::deque<CACHE_TAG>();
-        _dataValues = std::map<CACHE_TAG, std::vector<char>>();
     }
 
     VOID SetAssociativity(UINT32 associativity) {
@@ -253,7 +252,7 @@ class LRU {
             // tag not found
             size_t current_set_size = 0;
             for (size_t tagIdx = 0; tagIdx < _tags_lru.size(); ++tagIdx) {
-                current_set_size += _dataValues[_tags_lru[tagIdx]].size();
+                current_set_size += _dataValues[_tags_lru[tagIdx]].second;
             }
             if ((current_set_size + size) < (LINE_SIZE * GetAssociativity(0))) {
                 // ways still open, append new data
@@ -264,7 +263,7 @@ class LRU {
                 _evicted_tag = _tags_lru.back();
                 _tags_lru.pop_back();
                 _evicted_dirty = _evicted_tag._dirty;
-                _evicted_data = _dataValues[_evicted_tag];
+                _evicted_data = _dataValues[_evicted_tag].first;
                 _dataValues.erase(_evicted_tag);
 
                 _tags_lru.push_front(tag);
@@ -290,7 +289,7 @@ class LRU {
 
     }
 
-    VOID SetDataValue(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size, char* value) {
+    VOID SetDataValue(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size, char* value, UINT32 dataSize) {
         if (_dataTrack) {
             BOOL tag_in_set = false;
             for (size_t lruIdx = 0; lruIdx < _tags_lru.size(); ++lruIdx) {
@@ -304,15 +303,30 @@ class LRU {
                 thisData.resize(64);
 
                 ADDRINT lineIdx = baseAddr & 0x0000003f;
-                for (size_t idx = 0; idx < size; idx++) {
-                    thisData[lineIdx + idx] = value[idx];
-                }
-                if (_dataValues[tag].size() != 64) {
-                    _dataValues[tag].resize(64);
-                }
+                if (dataSize > 0) {
+                    for (size_t idx = 0; idx < dataSize; idx++) {
+                        thisData[lineIdx + idx] = value[idx];
+                    }
+                    if (_dataValues[tag].first.size() != 64) {
+                        _dataValues[tag].first.resize(dataSize);
+                        _dataValues[tag].second = thisData.size();
+                    }
 
-                for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
-                    _dataValues[tag][idx] = thisData[idx];
+                    for (size_t idx = lineIdx; idx < lineIdx + dataSize; ++idx) {
+                        _dataValues[tag].first[idx] = thisData[idx];
+                    }
+                } else {
+                    for (size_t idx = 0; idx < size; idx++) {
+                        thisData[lineIdx + idx] = value[idx];
+                    }
+                    if (_dataValues[tag].first.size() != 64) {
+                        _dataValues[tag].first.resize(64);
+                        _dataValues[tag].second = thisData.size();
+                    }
+
+                    for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
+                        _dataValues[tag].first[idx] = thisData[idx];
+                    }
                 }
             } else {
                 // attempted to set data value of tag not in cache
@@ -332,7 +346,7 @@ class LRU {
             if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
                 ADDRINT lineIdx = baseAddr & 0x0000003f;
                 for (size_t myIdx = 0; myIdx < size; ++myIdx) {
-                    value[myIdx] = _dataValues[tag][lineIdx + myIdx];
+                    value[myIdx] = _dataValues[tag].first[lineIdx + myIdx];
                 }
             } else {
                 // attempted to set data value of tag not in cache
@@ -530,7 +544,7 @@ class CACHE : public CACHE_BASE {
 
         // modifiers
         /// Cache access from addr to addr+size-1
-        CACHE_ACCESS_STRUCT Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
+        CACHE_ACCESS_STRUCT Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value, UINT32 dataSize);
         /// Cache access at addr that does not span cache lines
         CACHE_ACCESS_STRUCT AccessSingleLine(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value);
 };
@@ -540,7 +554,7 @@ class CACHE : public CACHE_BASE {
  */
 
 template <class SET, UINT32 MAX_SETS, UINT32 STORE_ALLOCATION, UINT32 LINE_SIZE>
-CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value) {
+CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRINT addr, UINT32 size, ACCESS_TYPE accessType, char* value, UINT32 dataSize) {
     CACHE_ACCESS_STRUCT retval;
     retval.evicted_dirty = false;
 
@@ -551,6 +565,11 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
     assert(lineSize == LINE_SIZE);
     const ADDRINT notLineMask = ~(lineSize - 1);
     UINT32 this_size;
+    // dataSize is only ever used in L2 access, so guaranteed size is 64 and aligned
+    if (dataSize > 0) {
+        assert(size == 64);
+        assert((addr & 0x3f) == 0);
+    }
 
     do {
         // need to handle misaligned accesses
@@ -587,7 +606,11 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
             (accessType == ACCESS_TYPE_LOAD ||
                 STORE_ALLOCATION == CACHE_ALLOC::STORE_ALLOCATE)) {
 
-            set.Replace(tag, size);
+            if (dataSize > 0) {
+                set.Replace(tag, dataSize);
+            } else {
+                set.Replace(tag, this_size);
+            }
 
             if (set._evicted_dirty) {
                 retval.evicted_addr = MergeAddress(set._evicted_tag);
@@ -601,9 +624,16 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
         }
         addr = (addr & notLineMask) + lineSize; // start of next cache line
         if (value != NULL) {
-            set.SetDataValue(tag, addr, this_size, value);
-            if (accessType == ACCESS_TYPE_LOAD) {
-                set.GetDataValue(tag, addr, this_size, value);
+            if (dataSize > 0) {
+                set.SetDataValue(tag, addr, size, value, dataSize);
+                if (accessType == ACCESS_TYPE_LOAD) {
+                    set.GetDataValue(tag, addr, dataSize, value);
+                }
+            } else {
+                set.SetDataValue(tag, addr, this_size, value, 0);
+                if (accessType == ACCESS_TYPE_LOAD) {
+                    set.GetDataValue(tag, addr, this_size, value);
+                }
             }
 
             value = value + LINE_SIZE;
@@ -657,7 +687,7 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
     }
 
     if (value != NULL) {
-        set.SetDataValue(tag, addr, size, value);
+        set.SetDataValue(tag, addr, size, value, 0);
         if (accessType == ACCESS_TYPE_LOAD) {
             set.GetDataValue(tag, addr, size, value);
         }
