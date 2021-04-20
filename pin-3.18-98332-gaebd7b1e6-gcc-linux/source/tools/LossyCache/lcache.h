@@ -191,12 +191,12 @@ class ROUND_ROBIN {
 /*!
  *  @brief Cache set with least recently used replacement
  */
-template <UINT32 MAX_ASSOCIATIVITY = 16, UINT32 LINE_SIZE = 64, bool DATA = false>
+template <UINT32 MAX_ASSOCIATIVITY = 16, UINT32 LINE_SIZE = 64>
 class LRU {
   private:
     UINT32 _tagsLastIndex;
     std::deque<CACHE_TAG> _tags_lru;
-    bool _dataTrack;
+    std::map<CACHE_TAG, std::vector<int>> _dataTrack; // true or false if each byte is in the cache
     // first in each pair holds the data, second holds the size.
     // size may not equal first.size() if compression is used
     std::map<CACHE_TAG, std::pair<std::vector<char>, UINT32>> _dataValues;
@@ -211,7 +211,6 @@ class LRU {
 
         ASSERTX(associativity <= MAX_ASSOCIATIVITY);
 
-        _dataTrack = DATA;
         _tags_lru = std::deque<CACHE_TAG>();
     }
 
@@ -223,18 +222,24 @@ class LRU {
         return _tagsLastIndex + 1;
     }
 
-    BOOL Find(CACHE_TAG tag) {
-        bool result = true;
+    BOOL Find(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size) {
+        // printf("finding tag 0x%lx\n", ADDRINT(tag)<<6);
 
         if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
             // this is now the most recently used
             _tags_lru.erase(std::remove(_tags_lru.begin(), _tags_lru.end(), tag), _tags_lru.end());
             _tags_lru.push_front(tag);
-            return result;
-        }
-        result = false;
 
-        return result;
+            ADDRINT lineIdx = baseAddr & 0x0000003f;
+            // tag in _tags_lru must also be in _dataTrack
+            for (size_t idx = 0; idx < size; ++idx) {
+                if (_dataTrack[tag][lineIdx + idx] == 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     VOID Replace(CACHE_TAG tag, UINT32 size) {
@@ -246,8 +251,8 @@ class LRU {
             }
         }
         if (tag_in_set) {
-            // found tag in cache, error, should not call replace on a cache hit
-            assert(false);
+            // do nothing, tag is already in set
+            // miss due to accessing missing portion of cache line
         } else {
             // tag not found
             size_t current_set_size = 0;
@@ -257,16 +262,23 @@ class LRU {
             if ((current_set_size + size) < (LINE_SIZE * GetAssociativity(0))) {
                 // ways still open, append new data
                 _tags_lru.push_front(tag);
+                std::vector<int> all_false(64, 0);
+                _dataTrack[tag] = all_false;
+
                 _evicted_dirty = false;
             } else {
                 // all ways full, evict
                 _evicted_tag = _tags_lru.back();
+                // printf("evicting tag %lx\n", ADDRINT(_evicted_tag) << 6);
                 _tags_lru.pop_back();
                 _evicted_dirty = _evicted_tag._dirty;
                 _evicted_data = _dataValues[_evicted_tag].first;
                 _dataValues.erase(_evicted_tag);
+                _dataTrack.erase(_evicted_tag);
 
                 _tags_lru.push_front(tag);
+                std::vector<int> all_false(64, 0);
+                _dataTrack[tag] = all_false;
             }
         }
     }
@@ -290,74 +302,81 @@ class LRU {
     }
 
     VOID SetDataValue(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size, char* value, UINT32 dataSize) {
-        if (_dataTrack) {
-            BOOL tag_in_set = false;
-            for (size_t lruIdx = 0; lruIdx < _tags_lru.size(); ++lruIdx) {
-                if (_tags_lru[lruIdx] == tag) {
-                    tag_in_set = true;
-                    break;
-                }
+        BOOL tag_in_set = false;
+        for (size_t lruIdx = 0; lruIdx < _tags_lru.size(); ++lruIdx) {
+            if (_tags_lru[lruIdx] == tag) {
+                tag_in_set = true;
+                break;
             }
-            if (tag_in_set) {
-                std::vector<char> thisData;
-                thisData.resize(64);
+        }
+        if (tag_in_set) {
+            std::vector<char> thisData;
 
-                ADDRINT lineIdx = baseAddr & 0x0000003f;
-                if (dataSize > 0) {
-                    for (size_t idx = 0; idx < dataSize; idx++) {
-                        thisData[lineIdx + idx] = value[idx];
-                    }
-                    if (_dataValues[tag].first.size() != 64) {
-                        _dataValues[tag].first.resize(dataSize);
-                        _dataValues[tag].second = thisData.size();
-                    }
+            ADDRINT lineIdx = baseAddr & 0x0000003f;
+            if (dataSize > 0) {
+                assert(lineIdx == 0);
+                thisData.resize(dataSize);
+                for (size_t idx = 0; idx < dataSize; idx++) {
+                    thisData[idx] = value[idx];
+                }
+                if (_dataValues[tag].first.size() != dataSize) {
+                    _dataValues[tag].first.resize(dataSize);
+                    _dataValues[tag].second = thisData.size();
 
-                    for (size_t idx = lineIdx; idx < lineIdx + dataSize; ++idx) {
-                        _dataValues[tag].first[idx] = thisData[idx];
-                    }
-                } else {
-                    for (size_t idx = 0; idx < size; idx++) {
-                        thisData[lineIdx + idx] = value[idx];
-                    }
-                    if (_dataValues[tag].first.size() != 64) {
-                        _dataValues[tag].first.resize(64);
-                        _dataValues[tag].second = thisData.size();
-                    }
+                    _dataTrack[tag].resize(dataSize);
+                }
 
-                    for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
-                        _dataValues[tag].first[idx] = thisData[idx];
-                    }
+                for (size_t idx = 0; idx < dataSize; ++idx) {
+                    _dataValues[tag].first[idx] = thisData[idx];
+                    _dataTrack[tag][idx] = 1;
                 }
             } else {
-                // attempted to set data value of tag not in cache
-                // multithreaded?
-                printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
-                printf("Current cache tags: \n");
-                for (UINT32 idx = 0; idx <= _tags_lru.size(); idx++) {
-                    printf("%zu\n", ADDRINT(_tags_lru[idx]));
+                thisData.resize(64);
+                for (size_t idx = 0; idx < size; idx++) {
+                    thisData[lineIdx + idx] = value[idx];
+                    // printf("tag 0x%lx idx %zu value is %d\n", ADDRINT(tag) << 6, idx, (int)value[idx]);
                 }
-                assert(false);
+                if (_dataValues[tag].first.size() != 64) {
+                    _dataValues[tag].first.resize(64);
+                    _dataValues[tag].second = thisData.size();
+
+                    _dataTrack[tag].resize(64);
+                }
+
+                for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
+                    _dataValues[tag].first[idx] = thisData[idx];
+                    _dataTrack[tag][idx] = 1;
+
+                    // printf("tag 0x%lx idx %zu thisData is %d\n", ADDRINT(tag) << 6, idx, (int)thisData[idx]);
+                }
             }
+        } else {
+            // attempted to set data value of tag not in cache
+            // multithreaded?
+            printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
+            printf("Current cache tags: \n");
+            for (UINT32 idx = 0; idx <= _tags_lru.size(); idx++) {
+                printf("%zu\n", ADDRINT(_tags_lru[idx]));
+            }
+            assert(false);
         }
     }
 
     VOID GetDataValue(CACHE_TAG tag, ADDRINT baseAddr, UINT32 size, char* value) {
-        if (_dataTrack) {
-            if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
-                ADDRINT lineIdx = baseAddr & 0x0000003f;
-                for (size_t myIdx = 0; myIdx < size; ++myIdx) {
-                    value[myIdx] = _dataValues[tag].first[lineIdx + myIdx];
-                }
-            } else {
-                // attempted to set data value of tag not in cache
-                // multithreaded?
-                printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
-                printf("Current cache tags: \n");
-                for (UINT32 idx = 0; idx <= _tags_lru.size(); idx++) {
-                    printf("%zu\n", ADDRINT(_tags_lru[idx]));
-                }
-                assert(false);
+        if (find(_tags_lru.begin(), _tags_lru.end(), tag) != _tags_lru.end()) {
+            ADDRINT lineIdx = baseAddr & 0x0000003f;
+            for (size_t myIdx = 0; myIdx < size; ++myIdx) {
+                value[myIdx] = _dataValues[tag].first[lineIdx + myIdx];
             }
+        } else {
+            // attempted to set data value of tag not in cache
+            // multithreaded?
+            printf("SetDataValue of tag: %zu\n", ADDRINT(tag));
+            printf("Current cache tags: \n");
+            for (UINT32 idx = 0; idx <= _tags_lru.size(); idx++) {
+                printf("%zu\n", ADDRINT(_tags_lru[idx]));
+            }
+            assert(false);
         }
     }
 };
@@ -585,7 +604,6 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
             size = size - this_size;
         }
 
-
         CACHE_TAG tag;
         UINT32 setIndex;
 
@@ -593,7 +611,7 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
 
         SET & set = _sets[setIndex];
 
-        bool localHit = set.Find(tag);
+        bool localHit = set.Find(tag, addr, this_size);
         allHit &= localHit;
 
         // on hit, writes set dirty bit of cache line
@@ -663,7 +681,7 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
 
     SET & set = _sets[setIndex];
 
-    bool hit = set.Find(tag);
+    bool hit = set.Find(tag, addr, size);
 
     // on hit, writes set dirty bit of cache line
     if (hit && accessType == ACCESS_TYPE_STORE) {
@@ -702,6 +720,6 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
 // define shortcuts
 #define CACHE_DIRECT_MAPPED(MAX_SETS, ALLOCATION, LINE_SIZE) CACHE<CACHE_SET::DIRECT_MAPPED, MAX_SETS, ALLOCATION, LINE_SIZE>
 #define CACHE_ROUND_ROBIN(MAX_SETS, MAX_ASSOCIATIVITY, ALLOCATION, LINE_SIZE) CACHE<CACHE_SET::ROUND_ROBIN<MAX_ASSOCIATIVITY>, MAX_SETS, ALLOCATION, LINE_SIZE>
-#define CACHE_LRU(MAX_SETS, MAX_ASSOCIATIVITY, ALLOCATION, LINE_SIZE, DATA) CACHE<CACHE_SET::LRU<MAX_ASSOCIATIVITY, LINE_SIZE, DATA>, MAX_SETS, ALLOCATION, LINE_SIZE>
+#define CACHE_LRU(MAX_SETS, MAX_ASSOCIATIVITY, ALLOCATION, LINE_SIZE) CACHE<CACHE_SET::LRU<MAX_ASSOCIATIVITY, LINE_SIZE>, MAX_SETS, ALLOCATION, LINE_SIZE>
 
 #endif // PIN_CACHE_H

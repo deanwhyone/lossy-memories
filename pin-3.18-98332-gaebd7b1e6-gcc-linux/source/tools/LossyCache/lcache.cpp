@@ -80,9 +80,8 @@ namespace LCACHE_L1
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
-    const BOOL keep_data = true;
 
-    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
+    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size) CACHE;
 }
 namespace LCACHE_L2
 {
@@ -90,9 +89,8 @@ namespace LCACHE_L2
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
-    const BOOL keep_data = true;
 
-    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
+    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size) CACHE;
 }
 
 LCACHE_L1::CACHE* dl1 = NULL;
@@ -177,7 +175,7 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, char* l2Data)
         value = (char *)malloc(32);
         dataSize = 32;
         CacheDoubleFPCompress(l2Data, compressed_cacheline, 4);
-        PIN_SafeCopy(value, &compressed_cacheline[0], 32);
+        PIN_SafeCopy(value, &compressed_cacheline, 32);
     } else {
         value = (char *)malloc(size);
         PIN_SafeCopy(value, l2Data, size);
@@ -306,7 +304,7 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
             UINT32 this_size = 64 - offset;
             LoadMultiL2(this_addr, L1D_CACHE, l2_data);
 
-            dl1->Access(this_addr, size, CACHE_BASE::ACCESS_TYPE_STORE, &(l2_data[offset]), 0); // redo to update cache
+            dl1->Access(this_addr, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
             PIN_SafeCopy((void*)this_addr, (void*)(&(l2_data[offset])), this_size); // write value from cache to mem
 
             // access 2
@@ -314,7 +312,7 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
             this_size = size - this_size;
             LoadMultiL2(this_addr + offset, L1D_CACHE, l2_data);
 
-            dl1->Access(this_addr, this_size, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
+            dl1->Access(this_addr, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
             PIN_SafeCopy((void*)(this_addr), l2_data, this_size); // write value from cache to mem
 
             nval = 0;
@@ -347,7 +345,7 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
             if (!KnobUseFPCompression.Value()) {
                 assert(val == nval); // check that actual value matches value in cache
             }
-            dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, &(l2_data[offset]), 0); // redo to update cache
+            dl1->Access(addr - offset, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
             PIN_SafeCopy((void*)addr, (void*)(&(l2_data[offset])), size); // write value from cache to mem
         }
         free(l2_data);
@@ -417,14 +415,9 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
     // fflush(stdout);
     char* value = (char*)malloc(size);
     UINT64 val = 0;
-    size_t copySize = PIN_SafeCopy(&val, (void*)addr, size);
-    if (copySize != size) {
-        printf("PIN_SafeCopy failed on addr 0x%lx\n", addr);
-    }
-    copySize = PIN_SafeCopy(value, (void*)addr, size);
-    if (copySize != size) {
-        printf("PIN_SafeCopy failed on addr 0x%lx\n", addr);
-    }
+
+    PIN_SafeCopy(&val, (void*)addr, size);
+    PIN_SafeCopy(value, (void*)addr, size);
 
     // first level D-cache
     const CACHE_ACCESS_STRUCT dl1Access = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
@@ -465,7 +458,7 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
         if (!KnobUseFPCompression.Value()) {
             assert(val == nval); // check that actual value matches value in cache
         }
-        dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, &(l2_data[offset]), 0); // redo to update cache
+        dl1->Access(addr - offset, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
         PIN_SafeCopy((void*)addr, (void*)(&(l2_data[offset])), size); // write value from cache to mem
 
         free(l2_data);
