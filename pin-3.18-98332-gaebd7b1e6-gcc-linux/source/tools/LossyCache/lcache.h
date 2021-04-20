@@ -311,29 +311,49 @@ class LRU {
         }
         if (tag_in_set) {
             std::vector<char> thisData;
-
             ADDRINT lineIdx = baseAddr & 0x0000003f;
-            if (dataSize > 0) {
-                assert(lineIdx == 0);
-                thisData.resize(dataSize);
-                for (size_t idx = 0; idx < dataSize; idx++) {
-                    thisData[idx] = value[idx];
-                }
-                if (_dataValues[tag].first.size() != dataSize) {
-                    _dataValues[tag].first.resize(dataSize);
-                    _dataValues[tag].second = thisData.size();
+            if (value != NULL) {
+                if (dataSize > 0) {
+                    assert(lineIdx == 0);
+                    thisData.resize(dataSize);
+                    for (size_t idx = 0; idx < dataSize; idx++) {
+                        thisData[idx] = value[idx];
+                    }
+                    if (_dataValues[tag].first.size() != dataSize) {
+                        _dataValues[tag].first.resize(dataSize);
+                        _dataValues[tag].second = thisData.size();
 
-                    _dataTrack[tag].resize(dataSize);
-                }
+                        _dataTrack[tag].resize(dataSize);
+                    }
 
-                for (size_t idx = 0; idx < dataSize; ++idx) {
-                    _dataValues[tag].first[idx] = thisData[idx];
-                    _dataTrack[tag][idx] = 1;
+                    for (size_t idx = 0; idx < dataSize; ++idx) {
+                        _dataValues[tag].first[idx] = thisData[idx];
+                        _dataTrack[tag][idx] = 1;
+                    }
+                } else {
+                    thisData.resize(64);
+                    for (size_t idx = 0; idx < size; idx++) {
+                        thisData[lineIdx + idx] = value[idx];
+                        // printf("tag 0x%lx idx %zu value is %d\n", ADDRINT(tag) << 6, idx, (int)value[idx]);
+                    }
+                    if (_dataValues[tag].first.size() != 64) {
+                        _dataValues[tag].first.resize(64);
+                        _dataValues[tag].second = thisData.size();
+
+                        _dataTrack[tag].resize(64);
+                    }
+
+                    for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
+                        _dataValues[tag].first[idx] = thisData[idx];
+                        _dataTrack[tag][idx] = 1;
+
+                        // printf("tag 0x%lx idx %zu thisData is %d\n", ADDRINT(tag) << 6, idx, (int)thisData[idx]);
+                    }
                 }
             } else {
                 thisData.resize(64);
                 for (size_t idx = 0; idx < size; idx++) {
-                    thisData[lineIdx + idx] = value[idx];
+                    thisData[lineIdx + idx] = 0; // dummy data for icache
                     // printf("tag 0x%lx idx %zu value is %d\n", ADDRINT(tag) << 6, idx, (int)value[idx]);
                 }
                 if (_dataValues[tag].first.size() != 64) {
@@ -655,6 +675,8 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
             }
 
             value = value + LINE_SIZE;
+        } else {
+            set.SetDataValue(tag, addr, size, value, 0);
         }
     } while (addr < highAddr);
 

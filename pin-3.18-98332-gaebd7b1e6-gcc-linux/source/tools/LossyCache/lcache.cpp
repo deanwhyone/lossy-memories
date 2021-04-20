@@ -526,6 +526,8 @@ VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
     // call L2 cache as needed
     if (!il1Hit) {
         LoadMultiL2(addr, L1I_CACHE, NULL);
+        ADDRINT offset = addr & 0x3f;
+        il1->Access(addr - offset, 64, CACHE_BASE::ACCESS_TYPE_LOAD, NULL, 0); // redo to update cache
     }
 
     // icache should never evict anything dirty because never written
