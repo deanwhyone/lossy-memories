@@ -168,7 +168,7 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, char* l2Data)
 
     PIN_SafeCopy((void *)l2Data, (void *)addr, size); // load from memory to L2
 
-    UINT32 dataSize = size;
+    UINT32 dataSize = 0;
     double compressed_cacheline[4];
     char *value;
     if (isCompressible) {

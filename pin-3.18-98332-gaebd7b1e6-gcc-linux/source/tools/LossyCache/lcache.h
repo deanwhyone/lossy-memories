@@ -196,7 +196,7 @@ class LRU {
   private:
     UINT32 _tagsLastIndex;
     std::deque<CACHE_TAG> _tags_lru;
-    std::map<CACHE_TAG, std::vector<int>> _dataTrack; // true or false if each byte is in the cache
+    std::map<CACHE_TAG, UINT64> _dataTrack; // true or false if each byte is in the cache
     // first in each pair holds the data, second holds the size.
     // size may not equal first.size() if compression is used
     std::map<CACHE_TAG, std::pair<std::vector<char>, UINT32>> _dataValues;
@@ -232,12 +232,11 @@ class LRU {
 
             ADDRINT lineIdx = baseAddr & 0x0000003f;
             // tag in _tags_lru must also be in _dataTrack
-            for (size_t idx = 0; idx < size; ++idx) {
-                if (_dataTrack[tag][lineIdx + idx] == 0) {
-                    return false;
-                }
+            UINT64 mask = ((1 << size) - 1) << lineIdx;
+
+            if ((_dataTrack[tag] & mask) == mask) {
+                return true;
             }
-            return true;
         }
         return false;
     }
@@ -262,8 +261,7 @@ class LRU {
             if ((current_set_size + size) < (LINE_SIZE * GetAssociativity(0))) {
                 // ways still open, append new data
                 _tags_lru.push_front(tag);
-                std::vector<int> all_false(64, 0);
-                _dataTrack[tag] = all_false;
+                _dataTrack[tag] = 0;
 
                 _evicted_dirty = false;
             } else {
@@ -277,8 +275,7 @@ class LRU {
                 _dataTrack.erase(_evicted_tag);
 
                 _tags_lru.push_front(tag);
-                std::vector<int> all_false(64, 0);
-                _dataTrack[tag] = all_false;
+                _dataTrack[tag] = 0;
             }
         }
     }
@@ -323,12 +320,13 @@ class LRU {
                         _dataValues[tag].first.resize(dataSize);
                         _dataValues[tag].second = thisData.size();
 
-                        _dataTrack[tag].resize(dataSize);
+                        // _dataTrack[tag].resize(dataSize);
                     }
 
                     for (size_t idx = 0; idx < dataSize; ++idx) {
                         _dataValues[tag].first[idx] = thisData[idx];
-                        _dataTrack[tag][idx] = 1;
+                        UINT64 mask = 1 << idx;
+                        _dataTrack[tag] |= mask;
                     }
                 } else {
                     thisData.resize(64);
@@ -340,12 +338,13 @@ class LRU {
                         _dataValues[tag].first.resize(64);
                         _dataValues[tag].second = thisData.size();
 
-                        _dataTrack[tag].resize(64);
+                        // _dataTrack[tag].resize(64);
                     }
 
                     for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
                         _dataValues[tag].first[idx] = thisData[idx];
-                        _dataTrack[tag][idx] = 1;
+                        UINT64 mask = 1 << idx;
+                        _dataTrack[tag] |= mask;
 
                         // printf("tag 0x%lx idx %zu thisData is %d\n", ADDRINT(tag) << 6, idx, (int)thisData[idx]);
                     }
@@ -360,12 +359,13 @@ class LRU {
                     _dataValues[tag].first.resize(64);
                     _dataValues[tag].second = thisData.size();
 
-                    _dataTrack[tag].resize(64);
+                    // _dataTrack[tag].resize(64);
                 }
 
                 for (size_t idx = lineIdx; idx < lineIdx + size; ++idx) {
                     _dataValues[tag].first[idx] = thisData[idx];
-                    _dataTrack[tag][idx] = 1;
+                    UINT64 mask = 1 << idx;
+                    _dataTrack[tag] |= mask;
 
                     // printf("tag 0x%lx idx %zu thisData is %d\n", ADDRINT(tag) << 6, idx, (int)thisData[idx]);
                 }
