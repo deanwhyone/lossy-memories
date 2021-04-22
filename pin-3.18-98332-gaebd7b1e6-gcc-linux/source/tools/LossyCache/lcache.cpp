@@ -52,6 +52,8 @@ KNOB<UINT32> KnobL2Associativity(KNOB_MODE_WRITEONCE, "pintool",
     "l2a","4", "cache associativity (1 for direct mapped)");
 KNOB<UINT32> KnobTestFPCompression(KNOB_MODE_WRITEONCE, "pintool",
     "fpc","0", "run test on floating point compression accuracy");
+KNOB<UINT32> KnobUseFPCompression(KNOB_MODE_WRITEONCE, "pintool",
+    "cfloat","0", "run test with float compression on");
 
 /* ===================================================================== */
 /* Print Help Message                                                    */
@@ -78,9 +80,8 @@ namespace LCACHE_L1
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
-    const BOOL keep_data = true;
 
-    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
+    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size) CACHE;
 }
 namespace LCACHE_L2
 {
@@ -88,9 +89,8 @@ namespace LCACHE_L2
     const UINT32 max_associativity = 64; // associativity;
     const CACHE_ALLOC::STORE_ALLOCATION allocation = CACHE_ALLOC::STORE_ALLOCATE;
     const UINT32 line_size = 64;
-    const BOOL keep_data = false;
 
-    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size, keep_data) CACHE;
+    typedef CACHE_LRU(max_sets, max_associativity, allocation, line_size) CACHE;
 }
 
 LCACHE_L1::CACHE* dl1 = NULL;
@@ -126,10 +126,12 @@ std::map<ADDRINT, ADDRINT> cMap;
 
 BOOL CheckCompressible(ADDRINT addr) {
     // outFile << "Address is " << addr << endl;
-    for (std::pair<ADDRINT, ADDRINT> element : cMap) {
-        if ((element.first <= addr) && (addr < (element.first + element.second))) {
-            // outFile << "Data is Compressable" << endl;
-            return true;
+    if (KnobUseFPCompression.Value()) {
+        for (std::pair<ADDRINT, ADDRINT> element : cMap) {
+            if ((element.first <= addr) && (addr < (element.first + element.second))) {
+                // outFile << "Data is Compressable" << endl;
+                return true;
+            }
         }
     }
     return false;
@@ -141,7 +143,7 @@ BOOL CheckCompressible(ADDRINT addr) {
  * Called on load miss in either L1 cache
  * Always loads a full cache line from L2, store into appropriate L1
  */
-VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId)
+VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, char* l2Data)
 {
     UINT32 size = 64; // granularity of a 64 byte cache line
     UINT32 instId = l2_profile.Map(addr);
@@ -149,9 +151,44 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId)
     // fflush(stdout);
 
     // align addr with 64 byte boundary
-    addr = addr & 0xfffffffffffffe00;
+    addr = addr & 0xffffffffffffffc0;
 
-    const BOOL l2Hit = l2->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, NULL);
+    // check if access can be compressed
+    BOOL isCompressible = false;
+    if (CheckCompressible(addr)) {
+        // full cache line needs to be compressible
+        isCompressible = true;
+        for (size_t idx = 0; idx < 64; ++idx) {
+            if (!CheckCompressible(addr + idx)) {
+                isCompressible = false;
+                break;
+            }
+        }
+    }
+
+    PIN_SafeCopy((void *)l2Data, (void *)addr, size); // load from memory to L2
+
+    UINT32 dataSize = 0;
+    double compressed_cacheline[4];
+    char *value;
+    if (isCompressible) {
+        value = (char *)malloc(32);
+        dataSize = 32;
+        CacheDoubleFPCompress(l2Data, compressed_cacheline, 4);
+        PIN_SafeCopy(value, &compressed_cacheline, 32);
+    } else {
+        value = (char *)malloc(size);
+        PIN_SafeCopy(value, l2Data, size);
+    }
+
+    const BOOL l2Hit = l2->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value, dataSize);
+
+    if (isCompressible) {
+        PIN_SafeCopy(&compressed_cacheline, value, 32);
+        CacheDoubleFPDecompress(compressed_cacheline, l2Data, 4);
+    } else {
+        PIN_SafeCopy((void *)l2Data, (void *)value, size);
+    }
 
     const COUNTER counter = l2Hit ? COUNTER_HIT : COUNTER_MISS;
     l2_profile[instId][counter]++;
@@ -164,16 +201,44 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId)
 /*
  * Called on eviction of dirty data in L1D (L1I never evicts dirty data)
  */
-VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId)
+VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, std::vector<char> evictData)
 {
+    assert(evictData.size() == 64); // always evict a cache line
     UINT32 size = 64; // granularity of a 64 byte cache line
     UINT32 instId = l2_profile.Map(addr);
     // printf("StoreMultiL2 addr: %lx, size %u\n", addr, size);
     // fflush(stdout);
-    // align addr with 64 byte boundary
-    addr = addr & 0xfffffffffffffe00;
+    // check addr is 64 byte boundary
+    assert((addr & 0x3f) == 0);
 
-    const BOOL l2Hit = l2->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, NULL);
+    // check if access can be compressed
+    BOOL isCompressible = false;
+    if (CheckCompressible(addr)) {
+        // full cache line needs to be compressible
+        isCompressible = true;
+        for (size_t idx = 0; idx < 64; ++idx) {
+            if (!CheckCompressible(addr + idx)) {
+                isCompressible = false;
+                break;
+            }
+        }
+    }
+
+    UINT32 dataSize = size;
+    double compressed_cacheline[4];
+    char *value;
+    if (isCompressible) {
+        value = (char *)malloc(32);
+        dataSize = 32;
+        CacheDoubleFPCompress(&evictData[0], compressed_cacheline, 4);
+        PIN_SafeCopy(value, &compressed_cacheline[0], 32);
+    } else {
+        value = (char *)malloc(64);
+        PIN_SafeCopy(value, &evictData[0], 64);
+    }
+    free(value);
+
+    const BOOL l2Hit = l2->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value, dataSize);
 
     const COUNTER counter = l2Hit ? COUNTER_HIT : COUNTER_MISS;
     l2_profile[instId][counter]++;
@@ -199,7 +264,7 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
-    const CACHE_ACCESS_STRUCT dl1Access = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
+    const CACHE_ACCESS_STRUCT dl1Access = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value, 0);
     const BOOL dl1Hit = dl1Access.hit;
 
     nval = 0;
@@ -208,13 +273,13 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
     } else {
         PIN_SafeCopy(&nval, (void*)value, size);
     }
-    if (val != nval) {
+    if (!KnobUseFPCompression.Value() && val != nval) {
         printf("lm: prior %zu, after %zu\n", val, nval);
         fflush(stdout);
     }
-    assert(val == nval); // check that actual value matches value in cache
-
-    PIN_SafeCopy((void*)addr, (void*)value, size); // copying value from cache into mem
+    if (!KnobUseFPCompression.Value()) {
+        assert(val == nval); // check that actual value matches value in cache
+    }
 
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
@@ -222,10 +287,73 @@ VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
 
     // call L2 cache as needed
     if (!dl1Hit) {
-        LoadMultiL2(addr, L1D_CACHE);
+        // assuming size <= 64, will never need to crack into more than 2 loads
+        ADDRINT offset = addr & 0x3f;
+        char *l2_data = (char*)malloc(64); // load from l2 is 64 bytes
+        if (offset + size > 64) {
+            // access is split across 2 cache lines
+            val = 0;
+            if (size >= 8) {
+                PIN_SafeCopy(&val, (void*)addr, 8); // only check first 8 bytes
+            } else {
+                PIN_SafeCopy(&val, (void*)addr, size);
+            }
+
+            // access 1
+            ADDRINT this_addr = addr;
+            UINT32 this_size = 64 - offset;
+            LoadMultiL2(this_addr, L1D_CACHE, l2_data);
+
+            dl1->Access(this_addr, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
+            PIN_SafeCopy((void*)this_addr, (void*)(&(l2_data[offset])), this_size); // write value from cache to mem
+
+            // access 2
+            this_addr = this_addr + this_size;
+            this_size = size - this_size;
+            LoadMultiL2(this_addr + offset, L1D_CACHE, l2_data);
+
+            dl1->Access(this_addr, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
+            PIN_SafeCopy((void*)(this_addr), l2_data, this_size); // write value from cache to mem
+
+            nval = 0;
+            if (size >= 8) {
+                PIN_SafeCopy(&nval, (void*)addr, 8);
+            } else {
+                PIN_SafeCopy(&nval, (void*)addr, size);
+            }
+            if (!KnobUseFPCompression.Value() && val != nval) {
+                printf("post lml2 cracked: prior %zu, after %zu\n", val, nval);
+                fflush(stdout);
+            }
+            if (!KnobUseFPCompression.Value()) {
+                assert(val == nval); // check that actual value matches value in cache
+            }
+        } else {
+            LoadMultiL2(addr, L1D_CACHE, l2_data);
+            // l2_data holds full 64 byte line
+
+            nval = 0;
+            if (size >= 8) {
+                PIN_SafeCopy(&nval, (void*)&(l2_data[offset]), 8);
+            } else {
+                PIN_SafeCopy(&nval, (void*)&(l2_data[offset]), size);
+            }
+            if (!KnobUseFPCompression.Value() && val != nval) {
+                printf("post lml2: prior %zu, after %zu\n", val, nval);
+                fflush(stdout);
+            }
+            if (!KnobUseFPCompression.Value()) {
+                assert(val == nval); // check that actual value matches value in cache
+            }
+            dl1->Access(addr - offset, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
+            PIN_SafeCopy((void*)addr, (void*)(&(l2_data[offset])), size); // write value from cache to mem
+        }
+        free(l2_data);
     }
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
+        for (size_t evictIdx = 0; evictIdx < dl1Access.evicted_data.size(); ++evictIdx) {
+            StoreMultiL2(dl1Access.evicted_addr, L1D_CACHE, dl1Access.evicted_data[evictIdx]);
+        }
     }
     // printf("LM done\n");
     // fflush(stdout);
@@ -251,7 +379,7 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
 
     PIN_SafeCopy(value, (void*)addr, size);
     // first level D-cache
-    const CACHE_ACCESS_STRUCT dl1Access = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value);
+    const CACHE_ACCESS_STRUCT dl1Access = dl1->Access(addr, size, CACHE_BASE::ACCESS_TYPE_STORE, value, 0);
     const BOOL dl1Hit = dl1Access.hit;
 
     nval = 0;
@@ -260,7 +388,9 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
     } else {
         PIN_SafeCopy(&nval, (void*)value, size);
     }
-    assert(val == nval); // check that actual value matches value in cache
+    if (!KnobUseFPCompression.Value()) {
+        assert(val == nval); // check that actual value matches value in cache
+    }
 
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
@@ -269,7 +399,9 @@ VOID StoreMulti(VOID * address, UINT32 size, UINT32 instId)
     // write-back cache never triggers miss on write
     // value is allocated in cache w/ dirty bit and the cache pushes on eviction
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
+        for (size_t evictIdx = 0; evictIdx < dl1Access.evicted_data.size(); ++evictIdx) {
+            StoreMultiL2(dl1Access.evicted_addr, L1D_CACHE, dl1Access.evicted_data[evictIdx]);
+        }
     }
     // printf("SM done\n");
     // fflush(stdout);
@@ -283,6 +415,7 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
     // fflush(stdout);
     char* value = (char*)malloc(size);
     UINT64 val = 0;
+
     PIN_SafeCopy(&val, (void*)addr, size);
     PIN_SafeCopy(value, (void*)addr, size);
 
@@ -290,10 +423,9 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
     const CACHE_ACCESS_STRUCT dl1Access = dl1->AccessSingleLine(addr, size, CACHE_BASE::ACCESS_TYPE_LOAD, value);
     const BOOL dl1Hit = dl1Access.hit;
 
-
     UINT64 nval = 0;
     PIN_SafeCopy(&nval, (void*)value, size);
-    if (val != nval) {
+    if (!KnobUseFPCompression.Value() && val != nval) {
         printf("ls: prior %zu, after %zu\n", val, nval);
         fflush(stdout);
     }
@@ -301,17 +433,41 @@ VOID LoadSingle(ADDRINT addr, UINT32 size, UINT32 instId)
 
     PIN_SafeCopy((void*)addr, (void*)value, size); // copying value from cache into mem
 
-    free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
     dl1_profile[instId][counter]++;
 
     // call L2 cache as needed
     if (!dl1Hit) {
-        LoadMultiL2(addr, L1D_CACHE);
+        // assuming size <= 64, will never need to crack into more than 2 loads
+        ADDRINT offset = addr & 0x3f;
+        char *l2_data = (char*)malloc(64); // load from l2 is 64 bytes
+
+        LoadMultiL2(addr, L1D_CACHE, l2_data);
+        // l2_data holds full 64 byte line
+
+        nval = 0;
+        if (size >= 8) {
+            PIN_SafeCopy(&nval, (void*)&(l2_data[offset]), 8);
+        } else {
+            PIN_SafeCopy(&nval, (void*)&(l2_data[offset]), size);
+        }
+        if (!KnobUseFPCompression.Value() && val != nval) {
+            printf("post lsl2: prior %zu, after %zu\n", val, nval);
+            fflush(stdout);
+        }
+        if (!KnobUseFPCompression.Value()) {
+            assert(val == nval); // check that actual value matches value in cache
+        }
+        dl1->Access(addr - offset, 64, CACHE_BASE::ACCESS_TYPE_STORE, l2_data, 0); // redo to update cache
+        PIN_SafeCopy((void*)addr, (void*)(&(l2_data[offset])), size); // write value from cache to mem
+
+        free(l2_data);
     }
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
+        StoreMultiL2(dl1Access.evicted_addr, L1D_CACHE, dl1Access.evicted_data[0]);
     }
+
+    free(value);
     // printf("LS done\n");
     // fflush(stdout);
 }
@@ -335,7 +491,9 @@ VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
 
     UINT64 nval = 0;
     PIN_SafeCopy(&nval, (void*)value, size);
-    assert(val == nval); // check that actual value matches value in cache
+    if (!KnobUseFPCompression.Value()) {
+        assert(val == nval); // check that actual value matches value in cache
+    }
 
     free(value);
     const COUNTER counter = dl1Hit ? COUNTER_HIT : COUNTER_MISS;
@@ -344,7 +502,7 @@ VOID StoreSingle(VOID * address, UINT32 size, UINT32 instId)
     // write-back cache never triggers miss on write
     // value is allocated in cache w/ dirty bit and the cache pushes on eviction
     if (dl1Access.evicted_dirty) {
-        StoreMultiL2(dl1Access.evicted_addr, L1I_CACHE);
+        StoreMultiL2(dl1Access.evicted_addr, L1D_CACHE, dl1Access.evicted_data[0]);
     }
     // printf("SS done\n");
     // fflush(stdout);
@@ -367,7 +525,9 @@ VOID LoadSingleInstruction(ADDRINT addr, UINT32 instId)
 
     // call L2 cache as needed
     if (!il1Hit) {
-        LoadMultiL2(addr, L1I_CACHE);
+        LoadMultiL2(addr, L1I_CACHE, NULL);
+        ADDRINT offset = addr & 0x3f;
+        il1->Access(addr - offset, 64, CACHE_BASE::ACCESS_TYPE_LOAD, NULL, 0); // redo to update cache
     }
 
     // icache should never evict anything dirty because never written

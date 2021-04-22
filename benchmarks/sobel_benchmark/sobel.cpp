@@ -147,7 +147,7 @@ int main( int argc, char** argv )
     //![display]
     // imshow(window_name, grad);
     // char key = (char)waitKey(0);
-    imwrite("edges_" + imageName, grad);
+    imwrite("/home/deanwhyone/18742/lossy-memories/benchmarks/sobel_benchmark/output.jpg", grad);
     //![display]
     return EXIT_SUCCESS;
 }
