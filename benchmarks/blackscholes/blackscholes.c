@@ -67,6 +67,17 @@ int numError = 0;
 // See Hull, Section 11.8, P.243-244
 #define inv_sqrt_2xPI 0.39894228040143270286
 
+void __COMPRESS__(void *ptr, size_t size) {
+    (void)ptr;
+    (void)size;
+    return;
+}
+
+void __NOCOMPRESS__(void *ptr) {
+    (void)ptr;
+    return;
+}
+
 fptype CNDF ( fptype InputX ) 
 {
     int sign;
@@ -80,6 +91,20 @@ fptype CNDF ( fptype InputX )
     fptype xK2_4, xK2_5;
     fptype xLocal, xLocal_1;
     fptype xLocal_2, xLocal_3;
+
+    __COMPRESS__((void *)&OutputX, sizeof(fptype));
+    __COMPRESS__((void *)&xInput, sizeof(fptype));
+    __COMPRESS__((void *)&xNPrimeofX, sizeof(fptype));
+    __COMPRESS__((void *)&expValues, sizeof(fptype));
+    __COMPRESS__((void *)&xK2, sizeof(fptype));
+    __COMPRESS__((void *)&xK2_2, sizeof(fptype));
+    __COMPRESS__((void *)&xK2_3, sizeof(fptype));
+    __COMPRESS__((void *)&xK2_4, sizeof(fptype));
+    __COMPRESS__((void *)&xK2_5, sizeof(fptype));
+    __COMPRESS__((void *)&xLocal, sizeof(fptype));
+    __COMPRESS__((void *)&xLocal_1, sizeof(fptype));
+    __COMPRESS__((void *)&xLocal_2, sizeof(fptype));
+    __COMPRESS__((void *)&xLocal_3, sizeof(fptype));
 
     // Check for negative value of InputX
     if (InputX < 0.0) {
@@ -128,6 +153,20 @@ fptype CNDF ( fptype InputX )
     if (sign) {
         OutputX = 1.0 - OutputX;
     }
+
+    __NOCOMPRESS__((void *)&OutputX);
+    __NOCOMPRESS__((void *)&xInput);
+    __NOCOMPRESS__((void *)&xNPrimeofX);
+    __NOCOMPRESS__((void *)&expValues);
+    __NOCOMPRESS__((void *)&xK2);
+    __NOCOMPRESS__((void *)&xK2_2);
+    __NOCOMPRESS__((void *)&xK2_3);
+    __NOCOMPRESS__((void *)&xK2_4);
+    __NOCOMPRESS__((void *)&xK2_5);
+    __NOCOMPRESS__((void *)&xLocal);
+    __NOCOMPRESS__((void *)&xLocal_1);
+    __NOCOMPRESS__((void *)&xLocal_2);
+    __NOCOMPRESS__((void *)&xLocal_3);
     
     return OutputX;
 } 
