@@ -660,21 +660,26 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::Access(ADDRI
                 retval.evicted_data.push_back(evictedData);
             }
         }
+        // printf("A: addr 0x%lx, size %u, hit? %d\n", addr, this_size, (int)localHit);
         addr = (addr & notLineMask) + lineSize; // start of next cache line
         if (value != NULL) {
             if (dataSize > 0) {
-                set.SetDataValue(tag, addr, size, value, dataSize);
+                if (accessType == ACCESS_TYPE_STORE || !localHit) {
+                    set.SetDataValue(tag, addr, size, value, dataSize);
+                }
                 if (accessType == ACCESS_TYPE_LOAD) {
                     set.GetDataValue(tag, addr, dataSize, value);
                 }
             } else {
-                set.SetDataValue(tag, addr, this_size, value, 0);
+                if (accessType == ACCESS_TYPE_STORE || !localHit) {
+                    set.SetDataValue(tag, addr, this_size, value, 0);
+                }
                 if (accessType == ACCESS_TYPE_LOAD) {
                     set.GetDataValue(tag, addr, this_size, value);
                 }
             }
 
-            value = value + LINE_SIZE;
+            value = value + this_size;
         } else {
             set.SetDataValue(tag, addr, size, value, 0);
         }
@@ -727,7 +732,9 @@ CACHE_ACCESS_STRUCT CACHE<SET,MAX_SETS,STORE_ALLOCATION,LINE_SIZE>::AccessSingle
     }
 
     if (value != NULL) {
-        set.SetDataValue(tag, addr, size, value, 0);
+        if (accessType == ACCESS_TYPE_STORE || !hit) {
+            set.SetDataValue(tag, addr, size, value, 0);
+        }
         if (accessType == ACCESS_TYPE_LOAD) {
             set.GetDataValue(tag, addr, size, value);
         }
