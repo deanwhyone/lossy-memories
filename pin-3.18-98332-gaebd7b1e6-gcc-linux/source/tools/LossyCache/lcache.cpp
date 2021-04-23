@@ -688,6 +688,11 @@ VOID MarkCompressible(ADDRINT addr, ADDRINT size) {
     cMap[addr] = size;
 }
 
+VOID MarkNotCompressable(ADDRINT addr) {
+    // fprintf(trace, "Unmarking addr %lx as compressable\n", addr);
+    cMap.erase(addr);
+}
+
 VOID Compress(IMG img, VOID *v) {
     for (SYM sym = IMG_RegsymHead(img); SYM_Valid(sym); sym = SYM_Next(sym)) {
         string undFuncName = PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY);
@@ -703,6 +708,25 @@ VOID Compress(IMG img, VOID *v) {
                                IARG_END);
 
                 RTN_Close(compressRtn);
+            }
+        }
+    }
+}
+
+VOID NoCompress(IMG img, VOID *v) {
+    for (SYM sym = IMG_RegsymHead(img); SYM_Valid(sym); sym = SYM_Next(sym)) {
+        string undFuncName = PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY);
+        //  Find the __NOCOMPRESS__() function.
+        if (undFuncName == "__NOCOMPRESS__") {
+            RTN noCompressRtn = RTN_FindByAddress(IMG_LowAddress(img) + SYM_Value(sym));
+            if (RTN_Valid(noCompressRtn)) {
+                RTN_Open(noCompressRtn);
+
+                RTN_InsertCall(noCompressRtn, IPOINT_BEFORE, (AFUNPTR)MarkNotCompressible,
+                               IARG_FUNCARG_ENTRYPOINT_VALUE, 0,
+                               IARG_END);
+
+                RTN_Close(noCompressRtn);
             }
         }
     }

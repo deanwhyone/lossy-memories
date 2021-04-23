@@ -9,6 +9,17 @@ int iters = 5;
 
 const long points_number = 100000;
 
+void __COMPRESS__(void *ptr, size_t size) {
+    (void)ptr;
+    (void)size;
+    return;
+}
+
+void __NOCOMPRESS__(void *ptr) {
+    (void)ptr;
+    return;
+}
+
 double dist(Point* p1, Point* p2)
 {
     Point p = {p1->x, p1->y};
@@ -68,6 +79,8 @@ void run(PointArray* xs, Clusters* clusters)
     long i,k;
     Point* temp = malloc(sizeof(Point));
     PointArray* centroids = (PointArray*)malloc(sizeof(PointArray));
+    __COMPRESS__((void *)&(centroids->points), sizeof(centroids->points));
+    __COMPRESS__((void *)&(xs->points), sizeof(xs->points));
     centroids->size = n;
     for (i=0;i<n;i++) {
         centroids->points[i].x = xs->points[i].x;
