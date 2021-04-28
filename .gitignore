@@ -1,6 +1,10 @@
 *.o
 *kmeans
+*gaussian
+*sobel
 *simple_add
 *.log
 *.out
 *obj-intel64
+*.jpg
+

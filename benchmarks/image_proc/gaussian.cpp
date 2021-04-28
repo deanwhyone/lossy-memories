@@ -80,10 +80,7 @@ int main( int argc, char** argv )
 
     //![variables]
     // First we declare the variables we are going to use
-    Mat image, src, src_grey;
-    Mat grad;
-    const String window_name = "Gaussian Demo - Simple Blur and Noise Reduction";
-    int ddepth = CV_16S;
+    Mat image, src, temp;
     //![variables]
 
     //![load]
@@ -100,14 +97,17 @@ int main( int argc, char** argv )
     //![load]
 
     //![reduce_noise]
-    // Remove noise by blurring with a Gaussian filter ( kernel size = 3 )
-    GaussianBlur(image, src, Size(51, 51), 0, 0, BORDER_DEFAULT);
+    // Remove noise by blurring with a Gaussian filter
+    GaussianBlur(image, temp, Size(17, 17), 0, 0, BORDER_DEFAULT);
     //![reduce_noise]
-    markMatCompressible(src);
+
+    markMatCompressible(temp);
+
+    GaussianBlur(temp, src, Size(3, 3), 0, 0, BORDER_DEFAULT);
+
+    printf("Gaussian blur complete\n");
 
     //![display]
-    // imshow(window_name, grad);
-    // char key = (char)waitKey(0);
     imwrite("/home/deanwhyone/18742/lossy-memories/benchmarks/image_proc/gaussian_output.jpg", src);
     //![display]
     return EXIT_SUCCESS;

@@ -595,6 +595,8 @@ VOID Instruction(INS ins, void *v)
     const ADDRINT iaddr = INS_Address(ins);
     // map sparse INS addresses to dense IDs
     UINT32 instId = il1_profile.Map(iaddr);
+    // printf("il1 iaddr map done\n");
+    // fflush(stdout);
     // instruction fetch is always single since fetched one at a time
     // this is not realistic for modern CPUs but is ok for a baseline
     INS_InsertPredicatedCall(
@@ -602,10 +604,14 @@ VOID Instruction(INS ins, void *v)
         IARG_ADDRINT, iaddr, IARG_UINT32, instId,
         IARG_END);
 
-    if (!INS_IsStandardMemop(ins)) return;
+    if (!INS_IsStandardMemop(ins)) {
+        return;
+    }
 
     UINT32 memOperands = INS_MemoryOperandCount(ins);
-    if (memOperands == 0) return;
+    if (memOperands == 0) {
+        return;
+    }
 
     UINT32 readSize=0, writeSize=0;
     UINT32 readOperandCount=0, writeOperandCount=0;
@@ -818,6 +824,7 @@ int main(int argc, char *argv[])
 
     INS_AddInstrumentFunction(Instruction, 0);
     IMG_AddInstrumentFunction(Compress, 0);
+    IMG_AddInstrumentFunction(NoCompress, 0);
     PIN_AddFiniFunction(Fini, 0);
 
     // Never returns
