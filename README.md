@@ -1,4 +1,4 @@
-# 18742 Course Project: Explorig Lossy Cache Compression in On-Chip CPU Caches
+# 18742 Course Project: Exploring Lossy Cache Compression in On-Chip CPU Caches
 
 This class project is the work of Jeffrey Luo, Shivani Prasad, and Deanyone Su.
 
