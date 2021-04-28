@@ -9,6 +9,31 @@
 #include <string>
 
 /*
+ * Compresses a 64 byte cache line into 32 bytes using an average of every
+ * pair of bytes in the cache line.
+ */
+VOID CacheDownsampleCompress(char *cache_line, char* cache_out) {
+    for (size_t idx = 0; idx < 32; ++idx) {
+        size_t cache_idx0 = idx * 2;
+        size_t cache_idx1 = idx * 2 + 1;
+        cache_out[idx] = (cache_line[cache_idx0] + cache_line[cache_idx1]) / 2;
+    }
+}
+
+/*
+ * Decompresses a 32 byte downsampled cache line into a standard cache line by
+ * duplicating each value.
+ */
+VOID CacheDownsampleDecompress(char *cache_in, char* cache_line) {
+    for (size_t idx = 0; idx < 32; ++idx) {
+        size_t cache_idx0 = idx * 2;
+        size_t cache_idx1 = idx * 2 + 1;
+        cache_line[cache_idx0] = cache_in[idx];
+        cache_line[cache_idx1] = cache_in[idx];
+    }
+}
+
+/*
  * Compresses a 64 byte cache line into N single precision fp
  * Arguments are cache line being compressed and the single fp array that will
  * contain the output single fp from compressing the cache line.
