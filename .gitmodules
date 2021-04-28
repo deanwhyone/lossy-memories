@@ -1,3 +1,6 @@
 [submodule "benchmarks/sobel_benchmark/opencv"]
 	path = benchmarks/sobel_benchmark/opencv
 	url = https://github.com/opencv/opencv.git
+[submodule "benchmarks/image_proc/opencv"]
+	path = benchmarks/image_proc/opencv
+	url = https://github.com/opencv/opencv.git

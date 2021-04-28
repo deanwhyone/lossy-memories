@@ -1,0 +1,6 @@
+*.o
+*kmeans
+*simple_add
+*.log
+*.out
+*obj-intel64
