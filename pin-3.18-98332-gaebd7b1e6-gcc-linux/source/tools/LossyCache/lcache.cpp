@@ -686,7 +686,7 @@ VOID MarkCompressible(ADDRINT addr, ADDRINT size) {
     cMap[addr] = size;
 }
 
-VOID MarkNotCompressable(ADDRINT addr) {
+VOID MarkNotCompressible(ADDRINT addr) {
     // fprintf(trace, "Unmarking addr %lx as compressable\n", addr);
     cMap.erase(addr);
 }
