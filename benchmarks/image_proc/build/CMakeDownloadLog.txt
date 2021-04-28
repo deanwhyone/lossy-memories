@@ -1,0 +1,2 @@
+#use_cache "/home/deanwhyone/18742/sobel_benchmark/opencv/.cache"
+#match_hash_in_cmake_cache "OCV_DOWNLOAD_IPPICV_HASH_3rdparty_ippicv_ippicv_2020_lnx_intel64_20191018_general_tgz"
