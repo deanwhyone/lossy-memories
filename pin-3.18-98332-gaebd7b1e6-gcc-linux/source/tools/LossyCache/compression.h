@@ -7,6 +7,58 @@
 #include "pin.H"
 #include <cmath>
 #include <string>
+// #include "TurboPFor-Integer-Compression/vp4.h"
+
+// /*
+//  * Compresses a 64 byte cache line into 16 bytes using an average of every
+//  * pair of bytes in the cache line.
+//  */
+// VOID CacheTPFCompress(char *cache_line, char* cache_out) {
+//     p4nenc8((uint8_t *)cache_line, 64, (unsigned char*)cache_out);
+// }
+
+// /*
+//  * Decompresses a 16 byte downsampled cache line into a standard cache line by
+//  * duplicating each value.
+//  */
+// VOID CacheTPFDecompress(char *cache_in, char* cache_line) {
+//     p4ndec8((uint8_t *)cache_in, 64, (unsigned char*)cache_line);
+// }
+
+
+/*
+ * Compresses a 64 byte cache line into 16 bytes using an average of every
+ * pair of bytes in the cache line.
+ */
+VOID CacheDownDownsampleCompress(char *cache_line, char* cache_out) {
+    for (size_t idx = 0; idx < 16; ++idx) {
+        size_t cache_idx0 = idx * 4;
+        size_t cache_idx1 = idx * 4 + 1;
+        size_t cache_idx2 = idx * 4 + 2;
+        size_t cache_idx3 = idx * 4 + 3;
+        cache_out[idx] = (
+            cache_line[cache_idx0] + cache_line[cache_idx1] +
+            cache_line[cache_idx2] + cache_line[cache_idx3]
+        ) / 4;
+    }
+}
+
+/*
+ * Decompresses a 16 byte downsampled cache line into a standard cache line by
+ * duplicating each value.
+ */
+VOID CacheDownDownsampleDecompress(char *cache_in, char* cache_line) {
+    for (size_t idx = 0; idx < 16; ++idx) {
+        size_t cache_idx0 = idx * 4;
+        size_t cache_idx1 = idx * 4 + 1;
+        size_t cache_idx2 = idx * 4 + 2;
+        size_t cache_idx3 = idx * 4 + 3;
+        cache_line[cache_idx0] = cache_in[idx];
+        cache_line[cache_idx1] = cache_in[idx];
+        cache_line[cache_idx2] = cache_in[idx];
+        cache_line[cache_idx3] = cache_in[idx];
+    }
+}
 
 /*
  * Compresses a 64 byte cache line into 32 bytes using an average of every

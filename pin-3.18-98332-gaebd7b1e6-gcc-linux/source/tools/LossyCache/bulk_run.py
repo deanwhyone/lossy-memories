@@ -4,12 +4,13 @@ import sys
 import subprocess
 
 if __name__ == '__main__':
-    assert(len(sys.argv) == 5)
+    assert(len(sys.argv) == 6)
 
     iterations = int(sys.argv[1])
     L1_hit_latency = int(sys.argv[2])
     L2_hit_latency = int(sys.argv[3])
     Mem_hit_latency = int(sys.argv[4])
+    compression_flag = sys.argv[5]
 
     l1_sizes = ["16", "32", "64", "128"]
     l2_sizes = ["256", "512", "1024", "2048"]
@@ -45,17 +46,22 @@ if __name__ == '__main__':
 
             for itr in range(iterations):
                 # call test function, edit this to run different files
-                subprocess.run(args=[
-                    "../../../pin",
-                    "-t",
-                    "obj-intel64/lcache.so",
-                    "-l1s", l1s,
-                    "-l2s", l2s,
-                    "-compression", "2",
-                    "--",
-                    "../../../../benchmarks/sobel_benchmark/sobel",
-                    "../../../../benchmarks/sobel_benchmark/Super-Mario-Avatar-500x500.jpg"
-                    ], universal_newlines=False, stdout=subprocess.DEVNULL);
+                retval = -1
+                while (retval != 0):
+                    ret_cp = subprocess.run(args=[
+                        "../../../pin",
+                        "-t",
+                        "obj-intel64/lcache.so",
+                        "-l1s", l1s,
+                        "-l2s", l2s,
+                        "-compression", compression_flag,
+                        "--",
+                        "../../../../benchmarks/kmeans_benchmark/kmeans"
+                        ], universal_newlines=False, stdout=subprocess.DEVNULL);
+
+                    retval = ret_cp.returncode
+                    if (retval != 0):
+                        print("segfaulted! retrying...")
 
                 # parse output file
                 out_file = open("lcache.out", "r");

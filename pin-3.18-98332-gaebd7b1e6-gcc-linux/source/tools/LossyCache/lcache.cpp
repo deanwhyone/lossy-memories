@@ -176,12 +176,18 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, char* l2Data)
             dataSize = 32;
             CacheDoubleFPCompress(l2Data, compressed_cacheline, 4);
             PIN_SafeCopy(value, &compressed_cacheline, 32);
-        } else {
+        } else if (KnobUseCompression.Value() == 2) {
             char compressed_cacheline[32];
             value = (char *)malloc(32);
             dataSize = 32;
             CacheDownsampleCompress(l2Data, compressed_cacheline);
             PIN_SafeCopy(value, &compressed_cacheline, 32);
+        } else {
+            char compressed_cacheline[16];
+            value = (char *)malloc(16);
+            dataSize = 16;
+            CacheDownDownsampleCompress(l2Data, compressed_cacheline);
+            PIN_SafeCopy(value, &compressed_cacheline, 16);
         }
     } else {
         value = (char *)malloc(size);
@@ -195,10 +201,14 @@ VOID LoadMultiL2(ADDRINT addr, CACHE_ID cacheId, char* l2Data)
             double compressed_cacheline[4];
             PIN_SafeCopy(&compressed_cacheline, value, 32);
             CacheDoubleFPDecompress(compressed_cacheline, l2Data, 4);
-        } else {
+        } else if (KnobUseCompression.Value() == 2) {
             char compressed_cacheline[32];
             PIN_SafeCopy(&compressed_cacheline, value, 32);
             CacheDownsampleDecompress(compressed_cacheline, l2Data);
+        } else {
+            char compressed_cacheline[16];
+            PIN_SafeCopy(&compressed_cacheline, value, 16);
+            CacheDownDownsampleDecompress(compressed_cacheline, l2Data);
         }
     } else {
         PIN_SafeCopy((void *)l2Data, (void *)value, size);
@@ -245,12 +255,18 @@ VOID StoreMultiL2(ADDRINT addr, CACHE_ID cacheId, std::vector<char> evictData)
             dataSize = 32;
             CacheDoubleFPCompress(&evictData[0], compressed_cacheline, 4);
             PIN_SafeCopy(value, &compressed_cacheline, 32);
-        } else {
+        } else if (KnobUseCompression.Value() == 2) {
             char compressed_cacheline[32];
             value = (char *)malloc(32);
             dataSize = 32;
             CacheDownsampleCompress(&evictData[0], compressed_cacheline);
             PIN_SafeCopy(value, &compressed_cacheline, 32);
+        } else {
+            char compressed_cacheline[16];
+            value = (char *)malloc(16);
+            dataSize = 16;
+            CacheDownDownsampleCompress(&evictData[0], compressed_cacheline);
+            PIN_SafeCopy(value, &compressed_cacheline, 16);
         }
     } else {
         value = (char *)malloc(64);
