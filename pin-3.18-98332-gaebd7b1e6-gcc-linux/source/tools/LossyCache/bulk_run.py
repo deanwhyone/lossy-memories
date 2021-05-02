@@ -12,7 +12,7 @@ if __name__ == '__main__':
     Mem_hit_latency = int(sys.argv[4])
     compression_flag = sys.argv[5]
 
-    l1_sizes = ["16", "32", "64", "128"]
+    l1_sizes = ["16", "32", "64"]
     l2_sizes = ["256", "512", "1024", "2048"]
 
     AMAT_avgs = {}
@@ -56,7 +56,8 @@ if __name__ == '__main__':
                         "-l2s", l2s,
                         "-compression", compression_flag,
                         "--",
-                        "../../../../benchmarks/kmeans_benchmark/kmeans"
+                        "../../../../benchmarks/image_proc/gaussian",
+                        "../../../../benchmarks/image_proc/mt_fuji.jpg",
                         ], universal_newlines=False, stdout=subprocess.DEVNULL);
 
                     retval = ret_cp.returncode
@@ -138,7 +139,7 @@ if __name__ == '__main__':
                 data_fraction.append(data_frac)
 
                 AMAT = (data_frac * AMAT_D) + ((1 - data_frac) * AMAT_I)
-                AMAT_total.append(AMAT)
+                AMAT_total.append(AMAT_D)
 
                 print("Iteration %d: Memory access mix is %f data accesses" % (itr, data_frac))
                 print("Iteration %d: Memory AMAT is %f" % (itr, AMAT))
